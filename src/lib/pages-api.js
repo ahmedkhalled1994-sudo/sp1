@@ -29,7 +29,7 @@ export function recordCallClick(slug) {
 export function fetchAllPages() {
   return supabase
     .from('pages')
-    .select('id, slug, title, user_email, phone, views_count, calls_count, is_active, created_at')
+    .select('*')
     .order('created_at', { ascending: false });
 }
 

@@ -16,6 +16,9 @@ export const HOURS_OPTIONS = [
 ];
 
 export const PLAN_PRICES = {
-  monthly: { name: 'الباقة الشهرية', price: '15', period: 'د.ك / شهرياً' },
-  annual: { name: 'الباقة السنوية', price: '120', period: 'د.ك / سنوياً' },
+  monthly: { name: 'الباقة الشهرية', price: '15', period: 'د.ك / شهريًا' },
+  annual: { name: 'الباقة السنوية', price: '120', period: 'د.ك / سنويًا' },
 };
+
+// عملة التحويل في Google Ads
+export const DEFAULT_AD_CURRENCY = 'KWD';

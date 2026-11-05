@@ -7,6 +7,7 @@ import { friendlyError } from '../lib/messages.js';
 import { showToast } from '../lib/feedback.js';
 import { el } from '../lib/dom.js';
 import {
+  buildWorkingHours,
   clearFieldError,
   fillForm,
   formFieldsMarkup,
@@ -16,38 +17,74 @@ import {
 } from './dashboard-form.js';
 
 function statRow(label, value) {
-  const row = el('div', 'bg-slate-950/60 border border-slate-800/80 p-4 rounded-2xl flex items-center justify-between');
-  row.append(el('span', 'text-xs text-slate-300 font-bold', label), el('span', 'text-2xl font-black text-emerald-400', String(value)));
+  const row = el(
+    'div',
+    'bg-slate-950/60 border border-slate-800/80 p-4 rounded-2xl flex items-center justify-between',
+  );
+  row.append(
+    el('span', 'text-xs text-slate-300 font-bold', label),
+    el('span', 'text-2xl font-black text-emerald-400', String(value)),
+  );
   return row;
 }
 
 function renderStats(statsEl, page) {
   const title = el('h2', 'font-black text-sm text-white', 'إحصائيات الصفحة');
+
   if (!page) {
-    statsEl.replaceChildren(title, el('p', 'text-xs text-slate-300', 'ستظهر الإحصائيات بعد حفظ صفحتك وتفعيلها.'));
+    statsEl.replaceChildren(
+      title,
+      el('p', 'text-xs text-slate-300', 'ستظهر الإحصائيات بعد حفظ صفحتك وتفعيلها.'),
+    );
     return;
   }
+
   statsEl.replaceChildren(
     title,
-    statRow('زيارات الصفحة', page.views_count),
-    statRow('ضغطات زر الاتصال', page.calls_count),
+    statRow('زيارات الصفحة', page.views_count ?? 0),
+    statRow('ضغطات زر الاتصال', page.calls_count ?? 0),
   );
 }
 
 function setStatus(statusEl, page) {
   if (!page) {
     statusEl.textContent = 'لم تُحفظ بعد';
-    statusEl.className = 'text-[11px] px-3 py-1 rounded-full font-bold border border-slate-700 text-slate-300 whitespace-nowrap';
+    statusEl.className =
+      'text-[11px] px-3 py-1 rounded-full font-bold border border-slate-700 text-slate-300 whitespace-nowrap';
     return;
   }
-  statusEl.textContent = page.is_active ? 'مفعلة' : 'متوقفة من الإدارة';
-  statusEl.className = page.is_active
-    ? 'text-[11px] px-3 py-1 rounded-full font-bold border border-emerald-500/40 text-emerald-400 bg-emerald-500/10 whitespace-nowrap'
-    : 'text-[11px] px-3 py-1 rounded-full font-bold border border-rose-500/40 text-rose-400 bg-rose-500/10 whitespace-nowrap';
+
+  const expired = page.expires_at && new Date(page.expires_at) < new Date();
+
+  if (expired) {
+    statusEl.textContent = 'منتهية';
+    statusEl.className =
+      'text-[11px] px-3 py-1 rounded-full font-bold border border-amber-500/40 text-amber-300 bg-amber-500/10 whitespace-nowrap';
+    return;
+  }
+
+  if (page.is_active === false) {
+    statusEl.textContent = 'متوقفة من الإدارة';
+    statusEl.className =
+      'text-[11px] px-3 py-1 rounded-full font-bold border border-rose-500/40 text-rose-400 bg-rose-500/10 whitespace-nowrap';
+    return;
+  }
+
+  statusEl.textContent = 'مفعلة';
+  statusEl.className =
+    'text-[11px] px-3 py-1 rounded-full font-bold border border-emerald-500/40 text-emerald-400 bg-emerald-500/10 whitespace-nowrap';
 }
 
 function noticeBlock(text, tone) {
-  const box = el('div', `rounded-2xl border p-3 text-xs font-bold ${tone === 'error' ? 'border-rose-500/40 text-rose-300 bg-rose-500/10' : 'border-amber-500/40 text-amber-300 bg-amber-500/10'}`);
+  const box = el(
+    'div',
+    `rounded-2xl border p-3 text-xs font-bold ${
+      tone === 'error'
+        ? 'border-rose-500/40 text-rose-300 bg-rose-500/10'
+        : 'border-amber-500/40 text-amber-300 bg-amber-500/10'
+    }`,
+  );
+
   box.append(el('span', '', text));
   return box;
 }
@@ -65,10 +102,17 @@ export async function renderDashboard(container) {
           </div>
           <span id="page-status"></span>
         </header>
+
         <div id="notice" class="space-y-3"></div>
+
         <form id="page-form" class="space-y-4" novalidate>
           ${formFieldsMarkup()}
-          <button id="save-btn" type="submit" class="w-full bg-linear-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 disabled:opacity-60 disabled:cursor-not-allowed text-slate-950 font-black py-4 rounded-2xl text-sm shadow-xl shadow-emerald-500/20 transition active:scale-95 cursor-pointer">
+
+          <button
+            id="save-btn"
+            type="submit"
+            class="w-full bg-linear-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 disabled:opacity-60 disabled:cursor-not-allowed text-slate-950 font-black py-4 rounded-2xl text-sm shadow-xl shadow-emerald-500/20 transition active:scale-95 cursor-pointer"
+          >
             حفظ الصفحة والمتابعة
           </button>
         </form>
@@ -78,6 +122,7 @@ export async function renderDashboard(container) {
         <div class="bg-slate-950 border-4 border-slate-800 rounded-[45px] p-4">
           <div id="preview"></div>
         </div>
+
         <div id="stats" class="glass-card rounded-3xl p-6 space-y-4"></div>
       </aside>
     </div>
@@ -95,11 +140,14 @@ export async function renderDashboard(container) {
 
   function updatePreview() {
     const draft = readDraft(form);
+
     previewEl.replaceChildren(
       createPageCard({
         ...draft,
+        theme: draft.theme || 'emerald',
         icon: draft.icon || '🎓',
         title: draft.title.trim() || 'اسم النشاط',
+        working_hours: buildWorkingHours(draft),
         is_active: true,
       }),
     );
@@ -108,11 +156,13 @@ export async function renderDashboard(container) {
   if (!user) {
     const loginLink = el('button', 'underline text-amber-200 font-black cursor-pointer', 'سجّل الدخول');
     loginLink.addEventListener('click', () => navigate('login'));
+
     const box = noticeBlock('يمكنك تجربة التصميم الآن. لحفظ صفحتك يجب ', 'warning');
-    box.append(loginLink, el('span', '', ' أولاً.'));
+    box.append(loginLink, el('span', '', ' أولًا.'));
     notice.append(box);
   } else {
     const result = await fetchMyPage(user.id);
+
     if (result.error) {
       canSave = false;
       notice.append(noticeBlock('تعذر تحميل صفحتك الحالية، أعد تحميل الصفحة بعد قليل.', 'error'));
@@ -123,10 +173,26 @@ export async function renderDashboard(container) {
 
   if (currentPage) {
     fillForm(form, currentPage);
-    if (!currentPage.is_active) {
-      notice.append(noticeBlock('صفحتك متوقفة حالياً من إدارة المنصة. الرابط لن يعمل للزوار حتى يتم تفعيلها.', 'warning'));
+
+    const expired = currentPage.expires_at && new Date(currentPage.expires_at) < new Date();
+
+    if (expired) {
+      notice.append(
+        noticeBlock(
+          'انتهت فترة اشتراك صفحتك. الرابط لن يعمل للزوار حتى يتم التجديد من إدارة المنصة.',
+          'warning',
+        ),
+      );
+    } else if (currentPage.is_active === false) {
+      notice.append(
+        noticeBlock(
+          'صفحتك متوقفة حاليًا من إدارة المنصة. الرابط لن يعمل للزوار حتى يتم تفعيلها.',
+          'warning',
+        ),
+      );
     }
   }
+
   setStatus(statusEl, currentPage);
   renderStats(statsEl, currentPage);
   syncHoursBox(form);
@@ -136,6 +202,7 @@ export async function renderDashboard(container) {
     if (event.target.name) clearFieldError(form, event.target.name);
     updatePreview();
   });
+
   form.addEventListener('change', () => {
     syncHoursBox(form);
     updatePreview();
@@ -145,18 +212,22 @@ export async function renderDashboard(container) {
     event.preventDefault();
 
     if (!user) {
-      showToast('سجّل الدخول أولاً لحفظ صفحتك', 'error');
+      showToast('سجّل الدخول أولًا لحفظ صفحتك', 'error');
       navigate('login');
       return;
     }
+
     if (!canSave) {
       showToast('تعذر تحميل صفحتك، أعد تحميل الصفحة', 'error');
       return;
     }
 
     const isNew = !currentPage;
-    const { values, errors } = validatePageInput(readDraft(form), { isNew });
+    const rawDraft = readDraft(form);
+    const { values, errors } = validatePageInput(rawDraft, { isNew });
+
     showFieldErrors(form, errors);
+
     if (Object.keys(errors).length > 0) {
       showToast('راجع الحقول المحددة باللون الأحمر', 'error');
       return;
@@ -164,7 +235,34 @@ export async function renderDashboard(container) {
 
     saveButton.disabled = true;
     saveButton.textContent = 'جاري الحفظ...';
-    const { error } = isNew ? await createPage(values) : await updatePage(user.id, values);
+
+    const payload = { ...rawDraft, ...values };
+
+    payload.theme = payload.theme || 'emerald';
+
+    // توحيد اسم حقل Google Ads
+    payload.gtag_label = payload.conversion_label || payload.gtag_label || '';
+    delete payload.conversion_label;
+
+    // توليد أوقات العمل
+    payload.working_hours = buildWorkingHours(payload);
+
+    // تنظيف روابط التواصل
+    ['whatsapp', 'instagram', 'snapchat', 'tiktok'].forEach((key) => {
+      payload[key] = String(payload[key] || '').trim();
+    });
+
+    // نظام التجربة المجانية: صفحة جديدة بدون تاريخ انتهاء تحصل على 7 أيام
+    if (isNew && !payload.expires_at) {
+      const trialEnd = new Date();
+      trialEnd.setDate(trialEnd.getDate() + 7);
+      payload.expires_at = trialEnd.toISOString();
+      payload.is_trial = true;
+      payload.is_active = true;
+    }
+
+    const { error } = isNew ? await createPage(payload) : await updatePage(user.id, payload);
+
     saveButton.disabled = false;
     saveButton.textContent = 'حفظ الصفحة والمتابعة';
 
@@ -173,7 +271,12 @@ export async function renderDashboard(container) {
       return;
     }
 
-    showToast('تم حفظ صفحتك بنجاح', 'success');
-    navigate('pricing');
+    if (isNew) {
+      showToast('🎉 تم إنشاء صفحتك التجريبية بنجاح! ستنتهي خلال 7 أيام', 'success');
+      navigate('success');
+    } else {
+      showToast('تم تحديث صفحتك بنجاح', 'success');
+      await renderDashboard(container);
+    }
   });
 }

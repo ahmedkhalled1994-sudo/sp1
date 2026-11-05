@@ -3,6 +3,7 @@ import { HOURS_OPTIONS, ICON_OPTIONS } from '../lib/constants.js';
 export const FORM_FIELD_NAMES = [
   'slug',
   'title',
+  'theme',
   'icon',
   'description',
   'phone',
@@ -16,7 +17,8 @@ export const FORM_FIELD_NAMES = [
   'tiktok',
 ];
 
-const INPUT_CLASS = 'w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-100 outline-none focus:border-emerald-500 transition disabled:opacity-60 disabled:cursor-not-allowed';
+const INPUT_CLASS =
+  'w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-100 outline-none focus:border-emerald-500 transition disabled:opacity-60 disabled:cursor-not-allowed';
 
 function field(name, label, control, hint = '') {
   return `
@@ -33,53 +35,133 @@ function iconInput(name, placeholder, iconClass) {
   return `
     <div class="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-xl px-3 focus-within:border-emerald-500 transition">
       <i class="${iconClass} text-sm text-slate-300"></i>
-      <input id="f-${name}" name="${name}" type="text" dir="ltr" placeholder="${placeholder}" class="w-full bg-transparent text-xs text-slate-100 outline-none py-3" />
+      <input
+        id="f-${name}"
+        name="${name}"
+        type="text"
+        dir="ltr"
+        placeholder="${placeholder}"
+        class="w-full bg-transparent text-xs text-slate-100 outline-none py-3"
+      />
     </div>
   `;
 }
 
+export function buildWorkingHours(draft) {
+  if (draft.hours_mode === 'custom') {
+    const from = String(draft.hours_from || '').trim();
+    const to = String(draft.hours_to || '').trim();
+    if (from && to) return `من ${from} إلى ${to}`;
+    if (from) return `من ${from}`;
+    if (to) return `إلى ${to}`;
+    return '';
+  }
+
+  if (draft.hours_mode === '24/7') {
+    return 'متوفرون الآن - خدمة 24/7';
+  }
+
+  if (draft.hours_mode === 'appointment') {
+    return 'حسب الموعد المسبق';
+  }
+
+  return draft.working_hours || '';
+}
+
 export function formFieldsMarkup() {
-  const iconOptions = ICON_OPTIONS.map((option) => `<option value="${option.value}">${option.value} ${option.label}</option>`).join('');
-  const hoursOptions = HOURS_OPTIONS.map((option) => `<option value="${option.value}">${option.label}</option>`).join('');
+  const iconOptions = ICON_OPTIONS.map(
+    (option) => `<option value="${option.value}">${option.value} ${option.label}</option>`,
+  ).join('');
+
+  const hoursOptions = HOURS_OPTIONS.map(
+    (option) => `<option value="${option.value}">${option.label}</option>`,
+  ).join('');
 
   return `
-    ${field('slug', 'اسم الرابط المخصص',
+    ${field(
+      'slug',
+      'اسم الرابط المخصص',
       `<div dir="ltr" class="flex items-center bg-slate-950 border border-slate-800 rounded-xl px-3 focus-within:border-emerald-500 transition disabled:opacity-60">
         <span class="text-[11px] text-slate-400 font-mono whitespace-nowrap">?p=</span>
-        <input id="f-slug" name="slug" type="text" placeholder="math-teacher" class="w-full bg-transparent text-xs text-emerald-400 font-mono outline-none py-3 pl-1" />
+        <input
+          id="f-slug"
+          name="slug"
+          type="text"
+          placeholder="math-teacher"
+          class="w-full bg-transparent text-xs text-emerald-400 font-mono outline-none py-3 pl-1"
+        />
       </div>`,
-      'يظهر في رابط إعلانات جوجل. يُحدد عند إنشاء الصفحة ولا يمكن تغييره بعد ذلك.')}
+      'يظهر في رابط إعلانات جوجل. يحدد عند إنشاء الصفحة ولا يمكن تغييره بعد ذلك.',
+    )}
 
-    ${field('title', 'اسم النشاط أو المعلم',
-      `<input id="f-title" name="title" type="text" placeholder="مثال: أستاذ أحمد - مدرس رياضيات" class="${INPUT_CLASS}" />`)}
+    ${field(
+      'theme',
+      'قالب وتصميم صفحة الهبوط',
+      `<select id="f-theme" name="theme" class="${INPUT_CLASS}">
+        <option value="emerald" selected>🟢 سبيد الزمردي (عصري وفائق السرعة - الأكثر طلبًا)</option>
+        <option value="blue">🔵 الأزرق الموثوق (طابع شركات ومؤسسات رسمية)</option>
+        <option value="gold">🟡 الذهبي الفاخر (VIP خدمات راقية ونخبوية)</option>
+      </select>`,
+      'اختر ألوان ونمط الصفحة الذي يناسب نشاطك الإعلاني',
+    )}
+
+    ${field(
+      'title',
+      'اسم النشاط أو المعلم',
+      `<input id="f-title" name="title" type="text" placeholder="مثال: أستاذ أحمد - مدرس رياضيات" class="${INPUT_CLASS}" />`,
+    )}
 
     <div class="grid md:grid-cols-2 gap-3">
-      ${field('icon', 'مجال النشاط',
-        `<select id="f-icon" name="icon" class="${INPUT_CLASS}">${iconOptions}</select>`)}
-      ${field('hours_mode', 'أوقات العمل',
-        `<select id="f-hours_mode" name="hours_mode" class="${INPUT_CLASS}">${hoursOptions}</select>`)}
+      ${field(
+        'icon',
+        'مجال النشاط وشعار المهنة',
+        `<select id="f-icon" name="icon" class="${INPUT_CLASS}">${iconOptions}</select>`,
+      )}
+
+      ${field(
+        'hours_mode',
+        'أوقات العمل',
+        `<select id="f-hours_mode" name="hours_mode" class="${INPUT_CLASS}">${hoursOptions}</select>`,
+      )}
     </div>
 
     <div id="hours-custom" class="hidden grid grid-cols-2 gap-3">
-      ${field('hours_from', 'من الساعة',
-        `<input id="f-hours_from" name="hours_from" type="text" placeholder="4:00 عصراً" class="${INPUT_CLASS}" />`)}
-      ${field('hours_to', 'إلى الساعة',
-        `<input id="f-hours_to" name="hours_to" type="text" placeholder="10:00 مساءً" class="${INPUT_CLASS}" />`)}
+      ${field(
+        'hours_from',
+        'من الساعة',
+        `<input id="f-hours_from" name="hours_from" type="text" placeholder="4:00 عصرًا" class="${INPUT_CLASS}" />`,
+      )}
+
+      ${field(
+        'hours_to',
+        'إلى الساعة',
+        `<input id="f-hours_to" name="hours_to" type="text" placeholder="10:00 مساءً" class="${INPUT_CLASS}" />`,
+      )}
     </div>
 
-    ${field('description', 'وصف مختصر لنشاطك',
-      `<textarea id="f-description" name="description" rows="3" class="${INPUT_CLASS} resize-none" placeholder="اكتب نبذة قصيرة عن خدماتك"></textarea>`)}
+    ${field(
+      'description',
+      'وصف مختصر لنشاطك',
+      `<textarea id="f-description" name="description" rows="3" class="${INPUT_CLASS} resize-none" placeholder="اكتب نبذة قصيرة عن خدماتك"></textarea>`,
+    )}
 
-    ${field('phone', 'رقم الاتصال المباشر',
+    ${field(
+      'phone',
+      'رقم الاتصال المباشر',
       `<input id="f-phone" name="phone" type="tel" dir="ltr" placeholder="+96599999999" class="${INPUT_CLASS}" />`,
-      'يُكتب مع رمز الدولة، مثال: 96599999999')}
+      'يكتب مع رمز الدولة، مثال: 96599999999',
+    )}
 
-    ${field('conversion_label', 'كود تحويل Google Ads (اختياري)',
+    ${field(
+      'conversion_label',
+      'كود تحويل Google Ads (اختياري)',
       `<input id="f-conversion_label" name="conversion_label" type="text" dir="ltr" placeholder="AW-123456789/AbC_DeF" class="${INPUT_CLASS} font-mono" />`,
-      'يُرسل عند ضغط زر الاتصال ليُحتسب كتحويل في حسابك الإعلاني.')}
+      'يرسل عند ضغط زر الاتصال ليحتسب كتحويل في حسابك الإعلاني.',
+    )}
 
     <div class="space-y-3 pt-2 border-t border-slate-800">
       <p class="text-xs text-slate-200 font-bold">حسابات التواصل الاجتماعي (اختياري)</p>
+
       <div class="grid md:grid-cols-2 gap-3">
         ${field('whatsapp', 'واتساب', iconInput('whatsapp', '96599999999', 'fa-brands fa-whatsapp text-teal-400'))}
         ${field('instagram', 'انستجرام', iconInput('instagram', 'username', 'fa-brands fa-instagram text-pink-400'))}
@@ -92,23 +174,50 @@ export function formFieldsMarkup() {
 
 export function readDraft(form) {
   const draft = {};
+
   FORM_FIELD_NAMES.forEach((name) => {
     draft[name] = form.elements[name]?.value ?? '';
   });
+
   return draft;
 }
 
 export function fillForm(form, page) {
   FORM_FIELD_NAMES.forEach((name) => {
-    if (page[name] != null) form.elements[name].value = page[name];
+    let value = page[name];
+
+    if (name === 'conversion_label' && (value == null || value === '')) {
+      value = page.gtag_label;
+    }
+
+    if (value != null) {
+      form.elements[name].value = value;
+    }
   });
-  form.elements.slug.disabled = true;
+
+  const social = page.social_links || {};
+
+  ['whatsapp', 'instagram', 'snapchat', 'tiktok'].forEach((key) => {
+    const input = form.elements[key];
+
+    if (input && !input.value && social[key]) {
+      input.value = social[key];
+    }
+  });
+
+  if (form.elements.slug) {
+    form.elements.slug.disabled = true;
+  }
+
   syncHoursBox(form);
 }
 
 export function syncHoursBox(form) {
   const box = form.querySelector('#hours-custom');
-  box.classList.toggle('hidden', form.elements.hours_mode.value !== 'custom');
+
+  if (box && form.elements.hours_mode) {
+    box.classList.toggle('hidden', form.elements.hours_mode.value !== 'custom');
+  }
 }
 
 export function showFieldErrors(form, errors) {
@@ -116,8 +225,10 @@ export function showFieldErrors(form, errors) {
     node.textContent = '';
     node.classList.add('hidden');
   });
+
   Object.entries(errors).forEach(([name, message]) => {
     const node = form.querySelector(`[data-error-for="${name}"]`);
+
     if (node) {
       node.textContent = message;
       node.classList.remove('hidden');

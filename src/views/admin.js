@@ -1,124 +1,856 @@
-import { getSession } from '../lib/session.js';
-import { fetchAllPages, setPageActive } from '../lib/pages-api.js';
-import { friendlyError } from '../lib/messages.js';
+import { supabase } from '../lib/supabase.js';
 import { showToast } from '../lib/feedback.js';
-import { el, messageBlock } from '../lib/dom.js';
-
-const HEAD_CELLS = ['اسم النشاط', 'إيميل المشترك', 'الهاتف', 'الرابط', 'الزيارات / الاتصالات', 'الحالة', 'التحكم'];
-
-function cell(content, className = 'p-3') {
-  const td = el('td', className);
-  td.append(content);
-  return td;
-}
-
-function buildRow(page, onToggle) {
-  const tr = el('tr', 'hover:bg-slate-900/60');
-
-  const link = el('a', 'text-emerald-400 underline font-mono', `?p=${page.slug}`);
-  link.href = `${window.location.origin}${window.location.pathname}?p=${encodeURIComponent(page.slug)}`;
-  link.target = '_blank';
-  link.rel = 'noopener noreferrer';
-
-  const status = el(
-    'span',
-    `px-2 py-0.5 rounded-full text-[10px] font-bold ${page.is_active ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`,
-    page.is_active ? 'مفعلة' : 'معطلة',
-  );
-
-  const toggle = el(
-    'button',
-    'bg-slate-800 hover:bg-slate-700 text-slate-100 px-3 py-1 rounded text-[11px] cursor-pointer disabled:opacity-60',
-    page.is_active ? 'إيقاف' : 'تفعيل',
-  );
-  toggle.addEventListener('click', () => onToggle(page, toggle));
-
-  tr.append(
-    cell(el('span', 'font-bold text-white', page.title)),
-    cell(el('span', 'text-slate-300 font-mono text-[11px] break-all', page.user_email)),
-    cell(el('span', 'font-mono text-emerald-400', page.phone)),
-    cell(link),
-    cell(el('span', 'text-slate-200 font-bold', `${page.views_count} زيارة / ${page.calls_count} اتصال`)),
-    cell(status),
-    cell(toggle, 'p-3 text-center'),
-  );
-  return tr;
-}
+import { escapeHtml } from '../lib/dom.js';
 
 export async function renderAdmin(container) {
-  if (!getSession().isAdmin) {
-    container.replaceChildren(messageBlock('هذه الصفحة مخصصة لإدارة المنصة فقط.', 'error'));
-    return;
-  }
+  container.innerHTML = `
+    <div class="min-h-screen bg-slate-950 p-6 flex items-center justify-center text-slate-400">
+      <div class="animate-pulse flex items-center gap-3">
+        <i class="fa-solid fa-circle-notch fa-spin text-emerald-500 text-2xl"></i>
+        <span>جاري فتح لوحة المدير...</span>
+      </div>
+    </div>
+  `;
+
+  const [pagesRes, settingsRes] = await Promise.all([
+    supabase.from('pages').select('*').order('created_at', { ascending: false }),
+    supabase.from('pricing_settings').select('*').eq('id', 'global').maybeSingle(),
+  ]);
+
+  const allPages = pagesRes.data || [];
+
+  const currentPricing = settingsRes.data || {
+    whatsapp_number: '96566217577',
+    headline: 'اختر باقتك وانطلق في إعلانات جوجل بأعلى معدل اتصالات',
+    plan1_old_price: '7 دنانير',
+    plan1_new_price: '5 دنانير',
+    plan2_old_price: '21 دينار',
+    plan2_new_price: '13 دينار',
+    plan3_old_price: '60 دينار',
+    plan3_new_price: '48 دينار',
+  };
+
+  const now = new Date();
+
+  const pagesWithStatus = allPages.map((page) => {
+    let diffDays = 0;
+    let isExpired = false;
+    let isExpiringSoon = false;
+
+    if (page.expires_at) {
+      diffDays = Math.ceil((new Date(page.expires_at) - now) / (1000 * 60 * 60 * 24));
+      if (diffDays <= 0) isExpired = true;
+      else if (diffDays <= 7) isExpiringSoon = true;
+    }
+
+    return { ...page, diffDays, isExpired, isExpiringSoon };
+  });
+
+  const totalPages = pagesWithStatus.length;
+  const suspendedCount = pagesWithStatus.filter((p) => p.is_active === false).length;
+  const activeCount = pagesWithStatus.filter((p) => !p.isExpired && p.is_active !== false).length;
+  const expiringSoonCount = pagesWithStatus.filter((p) => p.isExpiringSoon && p.is_active !== false).length;
+  const expiredCount = pagesWithStatus.filter((p) => p.isExpired).length;
+  const trialCount = pagesWithStatus.filter((p) => p.is_trial === true && !p.isExpired).length;
 
   container.innerHTML = `
-    <div class="max-w-6xl mx-auto p-4 md:p-8 space-y-6 animate-fade-in">
-      <div class="bg-linear-to-r from-emerald-950/40 to-slate-900 border border-emerald-500/30 p-6 rounded-3xl flex flex-wrap items-center justify-between gap-4">
+    <div class="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-8 max-w-6xl mx-auto">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
-          <span class="bg-emerald-500 text-slate-950 text-[10px] font-black px-2.5 py-0.5 rounded-full">حساب الإدارة</span>
-          <h1 class="text-xl font-black text-white mt-1">إدارة الصفحات المسجلة</h1>
-          <p class="text-xs text-slate-300">متابعة صفحات المشتركين وتفعيلها أو إيقافها</p>
+          <h1 class="text-3xl font-black flex items-center gap-3">
+            <i class="fa-solid fa-crown text-emerald-500"></i> لوحة إدارة صفحة إعلان (PAG ADS)
+          </h1>
+          <p class="text-slate-400 text-sm mt-1">التحكم الكامل في العملاء والاشتراكات والأسعار المباشرة.</p>
         </div>
-        <button id="refresh-admin" type="button" class="bg-slate-800 hover:bg-slate-700 text-xs px-3.5 py-2 rounded-xl text-slate-100 font-bold cursor-pointer">تحديث الجدول</button>
+
+        <button
+          id="openPricingModalBtn"
+          class="py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 border border-emerald-500/40 text-emerald-400 font-bold text-xs flex items-center gap-2 transition active:scale-95 cursor-pointer"
+        >
+          <i class="fa-solid fa-tags"></i>
+          <span>التحكم في الأسعار والباقات</span>
+        </button>
       </div>
 
-      <div class="glass-card rounded-3xl overflow-hidden border border-slate-800">
-        <div class="p-4 border-b border-slate-800 font-bold text-xs text-slate-200 flex items-center justify-between">
-          <span>قائمة الصفحات</span>
-          <span id="admin-count" class="text-emerald-400 font-mono">0 صفحات</span>
+      <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-8">
+        <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+          <div class="text-xs font-bold text-slate-400">إجمالي الصفحات</div>
+          <div class="text-2xl font-black text-slate-100 mt-1">${totalPages}</div>
         </div>
-        <div class="overflow-x-auto">
-          <table class="w-full text-right text-xs">
-            <thead class="bg-slate-900/80 text-slate-300 border-b border-slate-800">
-              <tr>${HEAD_CELLS.map((label) => `<th class="p-3 whitespace-nowrap">${label}</th>`).join('')}</tr>
-            </thead>
-            <tbody id="admin-rows" class="divide-y divide-slate-800 text-slate-100"></tbody>
-          </table>
+
+        <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+          <div class="text-xs font-bold text-emerald-400">النشطة</div>
+          <div class="text-2xl font-black text-emerald-400 mt-1">${activeCount}</div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+          <div class="text-xs font-bold text-amber-400">قريبة الانتهاء</div>
+          <div class="text-2xl font-black text-amber-400 mt-1">${expiringSoonCount}</div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+          <div class="text-xs font-bold text-purple-400">تجريبية</div>
+          <div class="text-2xl font-black text-purple-400 mt-1">${trialCount}</div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+          <div class="text-xs font-bold text-rose-400">موقوفة</div>
+          <div class="text-2xl font-black text-rose-400 mt-1">${suspendedCount}</div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+          <div class="text-xs font-bold text-rose-400">منتهية</div>
+          <div class="text-2xl font-black text-rose-400 mt-1">${expiredCount}</div>
+        </div>
+      </div>
+
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
+        <div class="relative w-full sm:w-80">
+          <i class="fa-solid fa-magnifying-glass absolute right-3 top-3.5 text-slate-500 text-sm"></i>
+          <input
+            type="text"
+            id="searchInput"
+            placeholder="بحث بالاسم أو الهاتف أو الرابط..."
+            class="w-full bg-slate-900 border border-slate-800 rounded-xl pr-9 pl-4 py-2.5 text-sm text-slate-200 outline-none focus:border-emerald-500"
+          />
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <button class="filter-btn px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 text-slate-950" data-filter="all">
+            الكل (${totalPages})
+          </button>
+
+          <button class="filter-btn px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 text-slate-300 hover:bg-slate-800" data-filter="active">
+            النشطة (${activeCount})
+          </button>
+
+          <button class="filter-btn px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 text-slate-300 hover:bg-slate-800" data-filter="expiring">
+            قريبة الانتهاء (${expiringSoonCount})
+          </button>
+
+          <button class="filter-btn px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 text-slate-300 hover:bg-slate-800" data-filter="trial">
+            تجريبية (${trialCount})
+          </button>
+
+          <button class="filter-btn px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 text-slate-300 hover:bg-slate-800" data-filter="suspended">
+            موقوفة (${suspendedCount})
+          </button>
+
+          <button class="filter-btn px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 text-slate-300 hover:bg-slate-800" data-filter="expired">
+            المنتهية (${expiredCount})
+          </button>
+        </div>
+      </div>
+
+      <div id="pagesList" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+
+      <div
+        id="editModal"
+        class="fixed inset-0 bg-slate-950/80 backdrop-blur-md hidden items-center justify-center p-4 z-50"
+      >
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl animate-fade-in max-h-[90vh] overflow-y-auto">
+          <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-800">
+            <h3 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+              <i class="fa-solid fa-pen-to-square text-emerald-500"></i> تعديل بيانات وقالب الصفحة
+            </h3>
+            <button id="closeModalBtn" class="text-slate-400 hover:text-slate-200 text-xl">&times;</button>
+          </div>
+
+          <form id="editForm" class="space-y-4">
+            <input type="hidden" id="editPageId" />
+
+            <div>
+              <label class="block text-xs font-bold text-slate-400 mb-1">اختيار قالب التصميم</label>
+              <select
+                id="editTheme"
+                class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 text-sm focus:border-emerald-500 outline-none"
+              >
+                <option value="emerald">🟢 سبيد الزمردي (الأكثر سرعة وطلبًا)</option>
+                <option value="blue">🔵 الأزرق الموثوق (طابع شركات ومؤسسات)</option>
+                <option value="gold">🟡 الذهبي الفاخر (VIP خدمات راقية)</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-400 mb-1">اسم النشاط / عنوان الصفحة</label>
+              <input
+                type="text"
+                id="editTitle"
+                class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 text-sm focus:border-emerald-500 outline-none"
+                required
+              />
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-bold text-slate-400 mb-1">رقم الهاتف للاتصال</label>
+                <input
+                  type="text"
+                  id="editPhone"
+                  class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 text-sm focus:border-emerald-500 outline-none font-mono"
+                  required
+                />
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-400 mb-1">الرابط (Slug)</label>
+                <input
+                  type="text"
+                  id="editSlug"
+                  class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 text-sm focus:border-emerald-500 outline-none font-mono"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-400 mb-1">تاريخ انتهاء الاشتراك</label>
+              <input
+                type="date"
+                id="editExpiresAt"
+                class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 text-sm focus:border-emerald-500 outline-none font-mono"
+                required
+              />
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-400 mb-1">حالة الصفحة</label>
+              <select
+                id="editIsActive"
+                class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 text-sm focus:border-emerald-500 outline-none"
+              >
+                <option value="true">مفعلة</option>
+                <option value="false">موقوفة من الإدارة</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-400 mb-1">وصف الخدمة</label>
+              <textarea
+                id="editDescription"
+                rows="3"
+                class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 text-sm focus:border-emerald-500 outline-none"
+              ></textarea>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-400 mb-1">أوقات العمل الظاهرة للزائر</label>
+              <input
+                type="text"
+                id="editWorkingHours"
+                placeholder="مثال: من 4 عصرًا إلى 10 مساءً"
+                class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 text-sm focus:border-emerald-500 outline-none"
+              />
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-400 mb-1">كود تتبع إعلانات جوجل (gtag)</label>
+              <input
+                type="text"
+                id="editGtag"
+                placeholder="AW-XXXXX/YYYYY"
+                class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 text-sm focus:border-emerald-500 outline-none font-mono"
+              />
+            </div>
+
+            <details class="bg-slate-950 border border-slate-800 rounded-xl p-3">
+              <summary class="text-xs font-bold text-emerald-400 cursor-pointer">
+                روابط التواصل الاجتماعي
+              </summary>
+
+              <div class="grid grid-cols-2 gap-3 mt-3">
+                <div>
+                  <label class="block text-[11px] font-bold text-slate-400 mb-1">واتساب</label>
+                  <input
+                    type="text"
+                    id="editWhatsapp"
+                    dir="ltr"
+                    class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 outline-none focus:border-emerald-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label class="block text-[11px] font-bold text-slate-400 mb-1">انستجرام</label>
+                  <input
+                    type="text"
+                    id="editInstagram"
+                    dir="ltr"
+                    class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label class="block text-[11px] font-bold text-slate-400 mb-1">سناب شات</label>
+                  <input
+                    type="text"
+                    id="editSnapchat"
+                    dir="ltr"
+                    class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label class="block text-[11px] font-bold text-slate-400 mb-1">تيك توك</label>
+                  <input
+                    type="text"
+                    id="editTiktok"
+                    dir="ltr"
+                    class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+            </details>
+
+            <div class="pt-4 flex gap-3">
+              <button
+                type="submit"
+                class="flex-1 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm transition cursor-pointer"
+              >
+                حفظ التعديلات
+              </button>
+              <button
+                type="button"
+                id="cancelModalBtn"
+                class="px-5 py-3 rounded-xl bg-slate-800 text-slate-300 font-bold text-sm cursor-pointer"
+              >
+                إلغاء
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div
+        id="pricingModal"
+        class="fixed inset-0 bg-slate-950/80 backdrop-blur-md hidden items-center justify-center p-4 z-50"
+      >
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl animate-fade-in max-h-[90vh] overflow-y-auto">
+          <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-800">
+            <h3 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+              <i class="fa-solid fa-tags text-emerald-500"></i> تعديل أسعار المنصة ورقم الواتساب
+            </h3>
+            <button id="closePricingModalBtn" class="text-slate-400 hover:text-slate-200 text-xl">&times;</button>
+          </div>
+
+          <form id="pricingForm" class="space-y-4">
+            <div>
+              <label class="block text-xs font-bold text-slate-400 mb-1">رقم الواتساب لاستقبال الاشتراكات</label>
+              <input
+                type="text"
+                id="settingWhatsapp"
+                value="${escapeHtml(currentPricing.whatsapp_number || '')}"
+                class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 text-sm focus:border-emerald-500 outline-none font-mono"
+                required
+              />
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-400 mb-1">عنوان صفحة الأسعار</label>
+              <input
+                type="text"
+                id="settingHeadline"
+                value="${escapeHtml(currentPricing.headline || '')}"
+                class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 text-sm focus:border-emerald-500 outline-none"
+                required
+              />
+            </div>
+
+            <div class="p-3 bg-purple-950/20 rounded-xl border border-purple-500/20 space-y-2">
+              <div class="text-xs font-bold text-purple-400">⚙️ إعدادات التجربة المجانية</div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-400 mb-1">مدة التجربة (بالأيام)</label>
+                <input
+                  type="number"
+                  id="settingTrialDays"
+                  min="1"
+                  max="30"
+                  value="${escapeHtml(String(currentPricing.trial_days || 7))}"
+                  class="bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 outline-none w-full"
+                  required
+                />
+              </div>
+            </div>
+
+            <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
+              <div class="text-xs font-bold text-emerald-400">1. الباقة الشهرية</div>
+              <div class="grid grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  id="plan1Old"
+                  placeholder="السعر القديم"
+                  value="${escapeHtml(currentPricing.plan1_old_price || '')}"
+                  class="bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 outline-none"
+                  required
+                />
+                <input
+                  type="text"
+                  id="plan1New"
+                  placeholder="سعر العرض"
+                  value="${escapeHtml(currentPricing.plan1_new_price || '')}"
+                  class="bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 outline-none"
+                  required
+                />
+              </div>
+            </div>
+
+            <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
+              <div class="text-xs font-bold text-emerald-400">2. باقة الـ 3 أشهر</div>
+              <div class="grid grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  id="plan2Old"
+                  placeholder="السعر القديم"
+                  value="${escapeHtml(currentPricing.plan2_old_price || '')}"
+                  class="bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 outline-none"
+                  required
+                />
+                <input
+                  type="text"
+                  id="plan2New"
+                  placeholder="سعر العرض"
+                  value="${escapeHtml(currentPricing.plan2_new_price || '')}"
+                  class="bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 outline-none"
+                  required
+                />
+              </div>
+            </div>
+
+            <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
+              <div class="text-xs font-bold text-emerald-400">3. الباقة السنوية</div>
+              <div class="grid grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  id="plan3Old"
+                  placeholder="السعر القديم"
+                  value="${escapeHtml(currentPricing.plan3_old_price || '')}"
+                  class="bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 outline-none"
+                  required
+                />
+                <input
+                  type="text"
+                  id="plan3New"
+                  placeholder="سعر العرض"
+                  value="${escapeHtml(currentPricing.plan3_new_price || '')}"
+                  class="bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 outline-none"
+                  required
+                />
+              </div>
+            </div>
+
+            <details class="bg-slate-950 border border-slate-800 rounded-xl p-3">
+              <summary class="text-xs font-bold text-emerald-400 cursor-pointer">
+                أسماء الباقات ومددها (اختياري)
+              </summary>
+              <div class="space-y-3 mt-3">
+                <div class="grid grid-cols-2 gap-2">
+                  <input type="text" id="plan1Name" placeholder="اسم الباقة 1" value="${escapeHtml(currentPricing.plan1_name || 'الباقة الشهرية')}" class="bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 outline-none" />
+                  <input type="text" id="plan1Duration" placeholder="المدة" value="${escapeHtml(currentPricing.plan1_duration || 'شهر واحد')}" class="bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 outline-none" />
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                  <input type="text" id="plan2Name" placeholder="اسم الباقة 2" value="${escapeHtml(currentPricing.plan2_name || 'باقة 3 أشهر')}" class="bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 outline-none" />
+                  <input type="text" id="plan2Duration" placeholder="المدة" value="${escapeHtml(currentPricing.plan2_duration || '90 يوماً')}" class="bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 outline-none" />
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                  <input type="text" id="plan3Name" placeholder="اسم الباقة 3" value="${escapeHtml(currentPricing.plan3_name || 'الباقة السنوية')}" class="bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 outline-none" />
+                  <input type="text" id="plan3Duration" placeholder="المدة" value="${escapeHtml(currentPricing.plan3_duration || '12 شهراً')}" class="bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 outline-none" />
+                </div>
+              </div>
+            </details>
+
+            <div class="pt-2 flex gap-3">
+              <button
+                type="submit"
+                class="flex-1 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm transition cursor-pointer"
+              >
+                حفظ ونشر الأسعار الجديدة
+              </button>
+              <button
+                type="button"
+                id="cancelPricingModalBtn"
+                class="px-5 py-3 rounded-xl bg-slate-800 text-slate-300 font-bold text-sm cursor-pointer"
+              >
+                إلغاء
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     </div>
   `;
 
-  const tbody = container.querySelector('#admin-rows');
-  const count = container.querySelector('#admin-count');
+  const renderCards = (items) => {
+    const list = container.querySelector('#pagesList');
 
-  function renderMessageRow(text, tone = 'info') {
-    const tr = el('tr');
-    const td = el('td', `p-4 text-center ${tone === 'error' ? 'text-rose-400' : 'text-slate-300'}`, text);
-    td.colSpan = HEAD_CELLS.length;
-    tr.append(td);
-    tbody.replaceChildren(tr);
-  }
-
-  async function handleToggle(page, button) {
-    button.disabled = true;
-    const { error } = await setPageActive(page.id, !page.is_active);
-    if (error) {
-      button.disabled = false;
-      showToast(friendlyError(error, 'تعذر تحديث حالة الصفحة'), 'error');
-      return;
-    }
-    showToast(page.is_active ? 'تم إيقاف الصفحة' : 'تم تفعيل الصفحة', 'success');
-    loadRows();
-  }
-
-  async function loadRows() {
-    renderMessageRow('جاري جلب الصفحات...');
-    const { data, error } = await fetchAllPages();
-    if (error) {
-      count.textContent = '0 صفحات';
-      renderMessageRow(friendlyError(error, 'تعذر تحميل الصفحات'), 'error');
+    if (items.length === 0) {
+      list.innerHTML = `<div class="col-span-2 text-center py-12 text-slate-500">لا توجد صفحات مطابقة للبحث.</div>`;
       return;
     }
 
-    count.textContent = `${data.length} صفحات`;
-    if (data.length === 0) {
-      renderMessageRow('لا توجد صفحات مسجلة حتى الآن');
+    list.innerHTML = items
+      .map((page) => {
+        const isSuspended = page.is_active === false;
+        const isExp = page.isExpired;
+        const isTrial = page.is_trial === true;
+
+        let statusText;
+        let statusBadge;
+
+        if (isSuspended) {
+          statusText = 'موقوفة من الإدارة';
+          statusBadge = 'bg-rose-500/10 text-rose-400 border-rose-500/20';
+        } else if (isExp) {
+          statusText = 'منتهي الصلاحية';
+          statusBadge = 'bg-rose-500/10 text-rose-400 border-rose-500/20';
+        } else if (isTrial) {
+          statusText = `تجريبية - متبقي ${page.diffDays} يوم`;
+          statusBadge = 'bg-purple-500/10 text-purple-400 border-purple-500/20';
+        } else {
+          statusText = `متبقي ${page.diffDays} يوم`;
+          statusBadge = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+        }
+
+        const themeNames = { emerald: 'الزمردي 🟢', blue: 'الأزرق 🔵', gold: 'الذهبي 🟡' };
+        const currentThemeName = themeNames[page.theme] || 'الزمردي 🟢';
+
+        const safeTitle = escapeHtml(page.title || page.company_name || 'بدون اسم');
+        const safeSlug = escapeHtml(page.slug || '');
+        const safePhone = escapeHtml(page.phone || '-');
+        const cleanPhone = String(page.phone || '').replace(/\D/g, '');
+
+        const waMsg = encodeURIComponent(
+          `مرحبًا بك عزيزي في ${page.title || 'خدمتكم'}، نود تذكيركم بخصوص تجديد باقة صفحة الهبوط (${page.slug}). للتجديد ومتابعة استقبال الاتصالات يرجى التواصل معنا.`,
+        );
+
+        const waLink = cleanPhone ? `https://wa.me/${cleanPhone}?text=${waMsg}` : '';
+
+        return `
+          <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl flex flex-col justify-between hover:border-slate-700 transition">
+            <div>
+              <div class="flex items-start justify-between gap-3 mb-2">
+                <div>
+                  <h3 class="font-bold text-lg text-slate-100">${safeTitle}</h3>
+                  <a
+                    href="/?p=${encodeURIComponent(page.slug || '')}"
+                    target="_blank"
+                    class="text-xs text-emerald-400 hover:underline flex items-center gap-1 mt-0.5"
+                  >
+                    <i class="fa-solid fa-arrow-up-right-from-square"></i> /?p=${safeSlug}
+                  </a>
+                </div>
+
+                <span class="px-2.5 py-1 rounded-full border text-xs font-bold ${statusBadge}">
+                  ${escapeHtml(statusText)}
+                </span>
+              </div>
+
+              <div class="grid grid-cols-2 gap-2 my-4 text-xs text-slate-400 bg-slate-950 p-3 rounded-xl border border-slate-800/80">
+                <div>الهاتف: <b class="text-slate-200 font-mono">${safePhone}</b></div>
+                <div>القالب: <b class="text-slate-200">${escapeHtml(currentThemeName)}</b></div>
+                <div>المشاهدات: <b class="text-slate-200 font-mono">${Number(page.views_count || 0)}</b></div>
+                <div>الاتصالات: <b class="text-emerald-400 font-mono">${Number(page.calls_count || 0)}</b></div>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2 pt-2 border-t border-slate-800/60">
+              <button
+                class="edit-btn flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                data-id="${escapeHtml(page.id)}"
+              >
+                <i class="fa-solid fa-pen-to-square"></i> تعديل
+              </button>
+
+              <button
+                class="extend-btn py-2 px-3 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                data-id="${escapeHtml(page.id)}"
+                data-current="${escapeHtml(page.expires_at || '')}"
+              >
+                <i class="fa-solid fa-calendar-plus"></i> +30 يوم
+              </button>
+
+              ${
+                waLink
+                  ? `
+                    <a
+                      href="${escapeHtml(waLink)}"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="py-2 px-3 bg-slate-800 hover:bg-emerald-950 text-emerald-400 rounded-xl text-xs font-bold flex items-center justify-center gap-1"
+                      title="إرسال تذكير واتساب"
+                    >
+                      <i class="fa-brands fa-whatsapp text-sm"></i> تذكير
+                    </a>
+                  `
+                  : ''
+              }
+            </div>
+          </div>
+        `;
+      })
+      .join('');
+
+    attachActions();
+  };
+
+  const attachActions = () => {
+    container.querySelectorAll('.edit-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const page = pagesWithStatus.find((p) => String(p.id) === String(btn.dataset.id));
+        if (!page) return;
+
+        container.querySelector('#editPageId').value = page.id;
+        container.querySelector('#editTheme').value = page.theme || 'emerald';
+        container.querySelector('#editTitle').value = page.title || page.company_name || '';
+        container.querySelector('#editPhone').value = page.phone || '';
+        container.querySelector('#editSlug').value = page.slug || '';
+        container.querySelector('#editDescription').value = page.description || '';
+        container.querySelector('#editGtag').value = page.gtag_label || page.conversion_label || '';
+        container.querySelector('#editWorkingHours').value = page.working_hours || '';
+        container.querySelector('#editIsActive').value = page.is_active === false ? 'false' : 'true';
+
+        const social = page.social_links || {};
+        container.querySelector('#editWhatsapp').value = page.whatsapp || social.whatsapp || '';
+        container.querySelector('#editInstagram').value = page.instagram || social.instagram || '';
+        container.querySelector('#editSnapchat').value = page.snapchat || social.snapchat || '';
+        container.querySelector('#editTiktok').value = page.tiktok || social.tiktok || '';
+
+        container.querySelector('#editExpiresAt').value = page.expires_at
+          ? new Date(page.expires_at).toISOString().split('T')[0]
+          : '';
+
+        const modal = container.querySelector('#editModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      });
+    });
+
+    container.querySelectorAll('.extend-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        const current = btn.dataset.current;
+
+        const baseDate = current && new Date(current) > now ? new Date(current) : new Date();
+        baseDate.setDate(baseDate.getDate() + 30);
+
+        const { error } = await supabase
+          .from('pages')
+          .update({
+            expires_at: baseDate.toISOString(),
+            is_active: true,
+            is_trial: false,
+          })
+          .eq('id', id);
+
+        if (error) {
+          console.error(error);
+          showToast('تعذر تمديد الاشتراك', 'error');
+          return;
+        }
+
+        showToast('تم تمديد الاشتراك 30 يومًا وتفعيل الصفحة', 'success');
+        await renderAdmin(container);
+      });
+    });
+  };
+
+  const editModal = container.querySelector('#editModal');
+  const closeEditModal = () => {
+    editModal.classList.add('hidden');
+    editModal.classList.remove('flex');
+  };
+
+  container.querySelector('#closeModalBtn').addEventListener('click', closeEditModal);
+  container.querySelector('#cancelModalBtn').addEventListener('click', closeEditModal);
+
+  const pricingModal = container.querySelector('#pricingModal');
+  const openPricingModalBtn = container.querySelector('#openPricingModalBtn');
+  const closePricingModalBtn = container.querySelector('#closePricingModalBtn');
+  const cancelPricingModalBtn = container.querySelector('#cancelPricingModalBtn');
+
+  openPricingModalBtn.addEventListener('click', () => {
+    pricingModal.classList.remove('hidden');
+    pricingModal.classList.add('flex');
+  });
+
+  const closePricingModal = () => {
+    pricingModal.classList.add('hidden');
+    pricingModal.classList.remove('flex');
+  };
+
+  closePricingModalBtn.addEventListener('click', closePricingModal);
+  cancelPricingModalBtn.addEventListener('click', closePricingModal);
+
+  container.querySelector('#editForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const id = container.querySelector('#editPageId').value;
+    const theme = container.querySelector('#editTheme').value;
+    const title = container.querySelector('#editTitle').value.trim();
+    const phone = container.querySelector('#editPhone').value.trim();
+    const slug = container.querySelector('#editSlug').value.trim();
+    const description = container.querySelector('#editDescription').value.trim();
+    const gtag_label = container.querySelector('#editGtag').value.trim();
+    const working_hours = container.querySelector('#editWorkingHours').value.trim();
+    const is_active = container.querySelector('#editIsActive').value === 'true';
+
+    const whatsapp = container.querySelector('#editWhatsapp').value.trim();
+    const instagram = container.querySelector('#editInstagram').value.trim();
+    const snapchat = container.querySelector('#editSnapchat').value.trim();
+    const tiktok = container.querySelector('#editTiktok').value.trim();
+
+    const expiresInput = container.querySelector('#editExpiresAt').value;
+
+    if (!title || !phone || !slug || !expiresInput) {
+      showToast('أكمل الحقول المطلوبة', 'error');
       return;
     }
-    tbody.replaceChildren(...data.map((page) => buildRow(page, handleToggle)));
-  }
 
-  container.querySelector('#refresh-admin').addEventListener('click', loadRows);
-  loadRows();
+    const expiresDate = new Date(expiresInput);
+    if (Number.isNaN(expiresDate.getTime())) {
+      showToast('تاريخ الانتهاء غير صحيح', 'error');
+      return;
+    }
+
+    const expires_at = expiresDate.toISOString();
+
+    const { error: err } = await supabase
+      .from('pages')
+      .update({
+        theme,
+        title,
+        company_name: title,
+        phone,
+        slug,
+        description,
+        gtag_label,
+        working_hours,
+        is_active,
+        whatsapp,
+        instagram,
+        snapchat,
+        tiktok,
+        expires_at,
+      })
+      .eq('id', id);
+
+    if (err) {
+      console.error(err);
+      showToast('حدث خطأ أثناء حفظ بيانات العميل', 'error');
+      return;
+    }
+
+    showToast('تم حفظ تعديلات العميل بنجاح', 'success');
+    closeEditModal();
+    await renderAdmin(container);
+  });
+
+  container.querySelector('#pricingForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const whatsapp_number = container.querySelector('#settingWhatsapp').value.trim();
+    const headline = container.querySelector('#settingHeadline').value.trim();
+    const trial_days = parseInt(container.querySelector('#settingTrialDays').value) || 7;
+
+    const plan1_old_price = container.querySelector('#plan1Old').value.trim();
+    const plan1_new_price = container.querySelector('#plan1New').value.trim();
+    const plan1_name = container.querySelector('#plan1Name')?.value.trim() || 'الباقة الشهرية';
+    const plan1_duration = container.querySelector('#plan1Duration')?.value.trim() || 'شهر واحد';
+
+    const plan2_old_price = container.querySelector('#plan2Old').value.trim();
+    const plan2_new_price = container.querySelector('#plan2New').value.trim();
+    const plan2_name = container.querySelector('#plan2Name')?.value.trim() || 'باقة 3 أشهر';
+    const plan2_duration = container.querySelector('#plan2Duration')?.value.trim() || '90 يوماً';
+
+    const plan3_old_price = container.querySelector('#plan3Old').value.trim();
+    const plan3_new_price = container.querySelector('#plan3New').value.trim();
+    const plan3_name = container.querySelector('#plan3Name')?.value.trim() || 'الباقة السنوية';
+    const plan3_duration = container.querySelector('#plan3Duration')?.value.trim() || '12 شهراً';
+
+    const { error: pErr } = await supabase.from('pricing_settings').upsert({
+      id: 'global',
+      whatsapp_number,
+      headline,
+      trial_days,
+      plan1_name,
+      plan1_duration,
+      plan1_old_price,
+      plan1_new_price,
+      plan2_name,
+      plan2_duration,
+      plan2_old_price,
+      plan2_new_price,
+      plan3_name,
+      plan3_duration,
+      plan3_old_price,
+      plan3_new_price,
+      updated_at: new Date().toISOString(),
+    });
+
+    if (pErr) {
+      console.error(pErr);
+      showToast('فشل حفظ الأسعار', 'error');
+      return;
+    }
+
+    showToast('تم حفظ الأسعار الجديدة ونشرها بنجاح', 'success');
+    closePricingModal();
+    await renderAdmin(container);
+  });
+
+  let currentFilter = 'all';
+  let searchTerm = '';
+
+  const applyFilters = () => {
+    let filtered = pagesWithStatus;
+
+    if (currentFilter === 'active') {
+      filtered = filtered.filter((p) => !p.isExpired && p.is_active !== false);
+    }
+
+    if (currentFilter === 'expired') {
+      filtered = filtered.filter((p) => p.isExpired);
+    }
+
+    if (currentFilter === 'suspended') {
+      filtered = filtered.filter((p) => p.is_active === false);
+    }
+
+    if (currentFilter === 'expiring') {
+      filtered = filtered.filter((p) => p.isExpiringSoon && p.is_active !== false);
+    }
+
+    if (currentFilter === 'trial') {
+      filtered = filtered.filter((p) => p.is_trial === true && !p.isExpired);
+    }
+
+    if (searchTerm) {
+      const q = searchTerm.toLowerCase();
+      filtered = filtered.filter(
+        (p) =>
+          (p.title || '').toLowerCase().includes(q) ||
+          (p.company_name || '').toLowerCase().includes(q) ||
+          (p.phone || '').includes(q) ||
+          (p.slug || '').toLowerCase().includes(q),
+      );
+    }
+
+    renderCards(filtered);
+  };
+
+  container.querySelector('#searchInput').addEventListener('input', (e) => {
+    searchTerm = e.target.value.trim();
+    applyFilters();
+  });
+
+  container.querySelectorAll('.filter-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      container.querySelectorAll('.filter-btn').forEach((b) => {
+        b.className = 'filter-btn px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 text-slate-300 hover:bg-slate-800';
+      });
+
+      btn.className = 'filter-btn px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 text-slate-950';
+      currentFilter = btn.dataset.filter;
+      applyFilters();
+    });
+  });
+
+  renderCards(pagesWithStatus);
 }

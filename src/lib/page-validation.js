@@ -18,24 +18,24 @@ export function slugify(value) {
 }
 
 function cleanPhone(value) {
-  return value.replace(/[\s-]/g, '');
+  return String(value || '').replace(/[\s-]/g, '');
 }
 
 function cleanHandle(value) {
-  return value.trim().replace(/^@/, '');
+  return String(value || '').trim().replace(/^@/, '');
 }
 
 export function validatePageInput(raw, { isNew }) {
   const errors = {};
   const values = {};
 
-  const title = raw.title.trim();
+  const title = String(raw.title || '').trim();
   if (title.length < 2 || title.length > 120) {
     errors.title = 'أدخل اسم النشاط (من حرفين إلى 120 حرفاً)';
   }
   values.title = title;
 
-  const description = raw.description.trim();
+  const description = String(raw.description || '').trim();
   if (description.length > 500) errors.description = 'الوصف يجب ألا يتجاوز 500 حرف';
   values.description = description;
 
@@ -52,9 +52,10 @@ export function validatePageInput(raw, { isNew }) {
 
   values.hours_from = '';
   values.hours_to = '';
+
   if (hoursMode === 'custom') {
-    const from = raw.hours_from.trim();
-    const to = raw.hours_to.trim();
+    const from = String(raw.hours_from || '').trim();
+    const to = String(raw.hours_to || '').trim();
     if (!from || from.length > 30) errors.hours_from = 'أدخل وقت البداية';
     if (!to || to.length > 30) errors.hours_to = 'أدخل وقت النهاية';
     values.hours_from = from;
@@ -77,7 +78,7 @@ export function validatePageInput(raw, { isNew }) {
   if (tiktok && !TIKTOK_RE.test(tiktok)) errors.tiktok = 'اسم المستخدم غير صحيح';
   values.tiktok = tiktok;
 
-  const conversionLabel = raw.conversion_label.trim();
+  const conversionLabel = String(raw.conversion_label || '').trim();
   if (conversionLabel && !CONVERSION_LABEL_RE.test(conversionLabel)) {
     errors.conversion_label = 'الكود يجب أن يكون بالشكل: AW-123456789/AbC_DeF';
   }

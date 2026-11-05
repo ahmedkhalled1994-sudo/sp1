@@ -1,5 +1,6 @@
 import './styles.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';
+
 import { renderNav } from './components/nav.js';
 import { renderAdmin } from './views/admin.js';
 import { renderDashboard } from './views/dashboard.js';
@@ -8,6 +9,7 @@ import { renderLive } from './views/live.js';
 import { renderLogin } from './views/login.js';
 import { renderPricing } from './views/pricing.js';
 import { renderSuccess } from './views/success.js';
+
 import { initSession, onSessionChange } from './lib/session.js';
 import { startRouter } from './lib/router.js';
 
@@ -23,6 +25,7 @@ const ROUTES = {
 async function boot() {
   const nav = document.getElementById('nav');
   const app = document.getElementById('app');
+
   const liveSlug = new URLSearchParams(window.location.search).get('p');
 
   if (liveSlug) {
@@ -32,7 +35,9 @@ async function boot() {
   }
 
   onSessionChange(() => renderNav(nav));
+
   const SESSION_TIMEOUT_MS = 4000;
+
   try {
     await Promise.race([
       initSession(),
@@ -41,6 +46,7 @@ async function boot() {
   } catch (error) {
     console.error(error);
   }
+
   renderNav(nav);
   startRouter(app, ROUTES);
 }
