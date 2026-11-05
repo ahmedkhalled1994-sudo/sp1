@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase.js';
 import { showToast } from '../lib/feedback.js';
 import { escapeHtml } from '../lib/dom.js';
+import { navigate } from '../lib/router.js';
 
 export async function renderAdmin(container) {
   container.innerHTML = `
@@ -12,23 +13,9 @@ export async function renderAdmin(container) {
     </div>
   `;
 
-  const [pagesRes, settingsRes] = await Promise.all([
-    supabase.from('pages').select('*').order('created_at', { ascending: false }),
-    supabase.from('pricing_settings').select('*').eq('id', 'global').maybeSingle(),
-  ]);
+  const pagesRes = await supabase.from('pages').select('*').order('created_at', { ascending: false });
 
   const allPages = pagesRes.data || [];
-
-  const currentPricing = settingsRes.data || {
-    whatsapp_number: '96566217577',
-    headline: 'اختر باقتك وانطلق في إعلانات جوجل بأعلى معدل اتصالات',
-    plan1_old_price: '7 دنانير',
-    plan1_new_price: '5 دنانير',
-    plan2_old_price: '21 دينار',
-    plan2_new_price: '13 دينار',
-    plan3_old_price: '60 دينار',
-    plan3_new_price: '48 دينار',
-  };
 
   const now = new Date();
 
@@ -64,7 +51,7 @@ export async function renderAdmin(container) {
         </div>
 
         <button
-          id="openPricingModalBtn"
+          id="openPricingBtn"
           class="py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 border border-emerald-500/40 text-emerald-400 font-bold text-xs flex items-center gap-2 transition active:scale-95 cursor-pointer"
         >
           <i class="fa-solid fa-tags"></i>
@@ -319,161 +306,6 @@ export async function renderAdmin(container) {
         </div>
       </div>
 
-      <div
-        id="pricingModal"
-        class="fixed inset-0 bg-slate-950/80 backdrop-blur-md hidden items-center justify-center p-4 z-50"
-      >
-        <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl animate-fade-in max-h-[90vh] overflow-y-auto">
-          <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-800">
-            <h3 class="text-lg font-bold text-slate-100 flex items-center gap-2">
-              <i class="fa-solid fa-tags text-emerald-500"></i> تعديل أسعار المنصة ورقم الواتساب
-            </h3>
-            <button id="closePricingModalBtn" class="text-slate-400 hover:text-slate-200 text-xl">&times;</button>
-          </div>
-
-          <form id="pricingForm" class="space-y-4">
-            <div>
-              <label class="block text-xs font-bold text-slate-400 mb-1">رقم الواتساب لاستقبال الاشتراكات</label>
-              <input
-                type="text"
-                id="settingWhatsapp"
-                value="${escapeHtml(currentPricing.whatsapp_number || '')}"
-                class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 text-sm focus:border-emerald-500 outline-none font-mono"
-                required
-              />
-            </div>
-
-            <div>
-              <label class="block text-xs font-bold text-slate-400 mb-1">عنوان صفحة الأسعار</label>
-              <input
-                type="text"
-                id="settingHeadline"
-                value="${escapeHtml(currentPricing.headline || '')}"
-                class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 text-sm focus:border-emerald-500 outline-none"
-                required
-              />
-            </div>
-
-            <div class="p-3 bg-purple-950/20 rounded-xl border border-purple-500/20 space-y-2">
-              <div class="text-xs font-bold text-purple-400">⚙️ إعدادات التجربة المجانية</div>
-              <div>
-                <label class="block text-[11px] font-bold text-slate-400 mb-1">مدة التجربة (بالأيام)</label>
-                <input
-                  type="number"
-                  id="settingTrialDays"
-                  min="1"
-                  max="30"
-                  value="${escapeHtml(String(currentPricing.trial_days || 7))}"
-                  class="bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 outline-none w-full"
-                  required
-                />
-              </div>
-            </div>
-
-            <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
-              <div class="text-xs font-bold text-emerald-400">1. الباقة الشهرية</div>
-              <div class="grid grid-cols-2 gap-2">
-                <input
-                  type="text"
-                  id="plan1Old"
-                  placeholder="السعر القديم"
-                  value="${escapeHtml(currentPricing.plan1_old_price || '')}"
-                  class="bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 outline-none"
-                  required
-                />
-                <input
-                  type="text"
-                  id="plan1New"
-                  placeholder="سعر العرض"
-                  value="${escapeHtml(currentPricing.plan1_new_price || '')}"
-                  class="bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 outline-none"
-                  required
-                />
-              </div>
-            </div>
-
-            <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
-              <div class="text-xs font-bold text-emerald-400">2. باقة الـ 3 أشهر</div>
-              <div class="grid grid-cols-2 gap-2">
-                <input
-                  type="text"
-                  id="plan2Old"
-                  placeholder="السعر القديم"
-                  value="${escapeHtml(currentPricing.plan2_old_price || '')}"
-                  class="bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 outline-none"
-                  required
-                />
-                <input
-                  type="text"
-                  id="plan2New"
-                  placeholder="سعر العرض"
-                  value="${escapeHtml(currentPricing.plan2_new_price || '')}"
-                  class="bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 outline-none"
-                  required
-                />
-              </div>
-            </div>
-
-            <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
-              <div class="text-xs font-bold text-emerald-400">3. الباقة السنوية</div>
-              <div class="grid grid-cols-2 gap-2">
-                <input
-                  type="text"
-                  id="plan3Old"
-                  placeholder="السعر القديم"
-                  value="${escapeHtml(currentPricing.plan3_old_price || '')}"
-                  class="bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 outline-none"
-                  required
-                />
-                <input
-                  type="text"
-                  id="plan3New"
-                  placeholder="سعر العرض"
-                  value="${escapeHtml(currentPricing.plan3_new_price || '')}"
-                  class="bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 outline-none"
-                  required
-                />
-              </div>
-            </div>
-
-            <details class="bg-slate-950 border border-slate-800 rounded-xl p-3">
-              <summary class="text-xs font-bold text-emerald-400 cursor-pointer">
-                أسماء الباقات ومددها (اختياري)
-              </summary>
-              <div class="space-y-3 mt-3">
-                <div class="grid grid-cols-2 gap-2">
-                  <input type="text" id="plan1Name" placeholder="اسم الباقة 1" value="${escapeHtml(currentPricing.plan1_name || 'الباقة الشهرية')}" class="bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 outline-none" />
-                  <input type="text" id="plan1Duration" placeholder="المدة" value="${escapeHtml(currentPricing.plan1_duration || 'شهر واحد')}" class="bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 outline-none" />
-                </div>
-                <div class="grid grid-cols-2 gap-2">
-                  <input type="text" id="plan2Name" placeholder="اسم الباقة 2" value="${escapeHtml(currentPricing.plan2_name || 'باقة 3 أشهر')}" class="bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 outline-none" />
-                  <input type="text" id="plan2Duration" placeholder="المدة" value="${escapeHtml(currentPricing.plan2_duration || '90 يوماً')}" class="bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 outline-none" />
-                </div>
-                <div class="grid grid-cols-2 gap-2">
-                  <input type="text" id="plan3Name" placeholder="اسم الباقة 3" value="${escapeHtml(currentPricing.plan3_name || 'الباقة السنوية')}" class="bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 outline-none" />
-                  <input type="text" id="plan3Duration" placeholder="المدة" value="${escapeHtml(currentPricing.plan3_duration || '12 شهراً')}" class="bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 outline-none" />
-                </div>
-              </div>
-            </details>
-
-            <div class="pt-2 flex gap-3">
-              <button
-                type="submit"
-                class="flex-1 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm transition cursor-pointer"
-              >
-                حفظ ونشر الأسعار الجديدة
-              </button>
-              <button
-                type="button"
-                id="cancelPricingModalBtn"
-                class="px-5 py-3 rounded-xl bg-slate-800 text-slate-300 font-bold text-sm cursor-pointer"
-              >
-                إلغاء
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
     </div>
   `;
 
@@ -660,23 +492,7 @@ export async function renderAdmin(container) {
   container.querySelector('#closeModalBtn').addEventListener('click', closeEditModal);
   container.querySelector('#cancelModalBtn').addEventListener('click', closeEditModal);
 
-  const pricingModal = container.querySelector('#pricingModal');
-  const openPricingModalBtn = container.querySelector('#openPricingModalBtn');
-  const closePricingModalBtn = container.querySelector('#closePricingModalBtn');
-  const cancelPricingModalBtn = container.querySelector('#cancelPricingModalBtn');
-
-  openPricingModalBtn.addEventListener('click', () => {
-    pricingModal.classList.remove('hidden');
-    pricingModal.classList.add('flex');
-  });
-
-  const closePricingModal = () => {
-    pricingModal.classList.add('hidden');
-    pricingModal.classList.remove('flex');
-  };
-
-  closePricingModalBtn.addEventListener('click', closePricingModal);
-  cancelPricingModalBtn.addEventListener('click', closePricingModal);
+  container.querySelector('#openPricingBtn').addEventListener('click', () => navigate('admin-pricing'));
 
   container.querySelector('#editForm').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -739,59 +555,6 @@ export async function renderAdmin(container) {
 
     showToast('تم حفظ تعديلات العميل بنجاح', 'success');
     closeEditModal();
-    await renderAdmin(container);
-  });
-
-  container.querySelector('#pricingForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-
-    const whatsapp_number = container.querySelector('#settingWhatsapp').value.trim();
-    const headline = container.querySelector('#settingHeadline').value.trim();
-    const trial_days = parseInt(container.querySelector('#settingTrialDays').value) || 7;
-
-    const plan1_old_price = container.querySelector('#plan1Old').value.trim();
-    const plan1_new_price = container.querySelector('#plan1New').value.trim();
-    const plan1_name = container.querySelector('#plan1Name')?.value.trim() || 'الباقة الشهرية';
-    const plan1_duration = container.querySelector('#plan1Duration')?.value.trim() || 'شهر واحد';
-
-    const plan2_old_price = container.querySelector('#plan2Old').value.trim();
-    const plan2_new_price = container.querySelector('#plan2New').value.trim();
-    const plan2_name = container.querySelector('#plan2Name')?.value.trim() || 'باقة 3 أشهر';
-    const plan2_duration = container.querySelector('#plan2Duration')?.value.trim() || '90 يوماً';
-
-    const plan3_old_price = container.querySelector('#plan3Old').value.trim();
-    const plan3_new_price = container.querySelector('#plan3New').value.trim();
-    const plan3_name = container.querySelector('#plan3Name')?.value.trim() || 'الباقة السنوية';
-    const plan3_duration = container.querySelector('#plan3Duration')?.value.trim() || '12 شهراً';
-
-    const { error: pErr } = await supabase.from('pricing_settings').upsert({
-      id: 'global',
-      whatsapp_number,
-      headline,
-      trial_days,
-      plan1_name,
-      plan1_duration,
-      plan1_old_price,
-      plan1_new_price,
-      plan2_name,
-      plan2_duration,
-      plan2_old_price,
-      plan2_new_price,
-      plan3_name,
-      plan3_duration,
-      plan3_old_price,
-      plan3_new_price,
-      updated_at: new Date().toISOString(),
-    });
-
-    if (pErr) {
-      console.error(pErr);
-      showToast('فشل حفظ الأسعار', 'error');
-      return;
-    }
-
-    showToast('تم حفظ الأسعار الجديدة ونشرها بنجاح', 'success');
-    closePricingModal();
     await renderAdmin(container);
   });
 

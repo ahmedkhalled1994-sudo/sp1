@@ -3,6 +3,7 @@ import '@fortawesome/fontawesome-free/css/all.min.css';
 
 import { renderNav } from './components/nav.js';
 import { renderAdmin } from './views/admin.js';
+import { renderAdminPricing } from './views/admin-pricing.js';
 import { renderDashboard } from './views/dashboard.js';
 import { renderHome } from './views/home.js';
 import { renderLive } from './views/live.js';
@@ -20,6 +21,7 @@ const ROUTES = {
   success: renderSuccess,
   login: renderLogin,
   admin: renderAdmin,
+  'admin-pricing': renderAdminPricing,
 };
 
 async function boot() {
