@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase.js';
 import { showToast } from '../lib/feedback.js';
 import { escapeHtml } from '../lib/dom.js';
 import { navigate } from '../lib/router.js';
+import { adminExtendSubscription, adminUpdatePage } from '../lib/pages-api.js';
 
 export async function renderAdmin(container) {
   container.innerHTML = `
@@ -179,12 +180,12 @@ export async function renderAdmin(container) {
                 />
               </div>
               <div>
-                <label class="block text-xs font-bold text-slate-400 mb-1">الرابط (Slug)</label>
+                <label class="block text-xs font-bold text-slate-400 mb-1">الرابط (Slug) - لا يمكن تغييره</label>
                 <input
                   type="text"
                   id="editSlug"
-                  class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 text-sm focus:border-emerald-500 outline-none font-mono"
-                  required
+                  class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-400 text-sm outline-none font-mono cursor-not-allowed"
+                  readonly
                 />
               </div>
             </div>
@@ -207,6 +208,17 @@ export async function renderAdmin(container) {
               >
                 <option value="true">مفعلة</option>
                 <option value="false">موقوفة من الإدارة</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-400 mb-1">نوع الاشتراك</label>
+              <select
+                id="editIsTrial"
+                class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 text-sm focus:border-emerald-500 outline-none"
+              >
+                <option value="false">اشتراك مدفوع</option>
+                <option value="true">فترة تجريبية</option>
               </select>
             </div>
 
@@ -393,7 +405,6 @@ export async function renderAdmin(container) {
               <button
                 class="extend-btn py-2 px-3 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
                 data-id="${escapeHtml(page.id)}"
-                data-current="${escapeHtml(page.expires_at || '')}"
               >
                 <i class="fa-solid fa-calendar-plus"></i> +30 يوم
               </button>
@@ -437,6 +448,7 @@ export async function renderAdmin(container) {
         container.querySelector('#editGtag').value = page.gtag_label || page.conversion_label || '';
         container.querySelector('#editWorkingHours').value = page.working_hours || '';
         container.querySelector('#editIsActive').value = page.is_active === false ? 'false' : 'true';
+        container.querySelector('#editIsTrial').value = page.is_trial === true ? 'true' : 'false';
 
         const social = page.social_links || {};
         container.querySelector('#editWhatsapp').value = page.whatsapp || social.whatsapp || '';
@@ -456,20 +468,7 @@ export async function renderAdmin(container) {
 
     container.querySelectorAll('.extend-btn').forEach((btn) => {
       btn.addEventListener('click', async () => {
-        const id = btn.dataset.id;
-        const current = btn.dataset.current;
-
-        const baseDate = current && new Date(current) > now ? new Date(current) : new Date();
-        baseDate.setDate(baseDate.getDate() + 30);
-
-        const { error } = await supabase
-          .from('pages')
-          .update({
-            expires_at: baseDate.toISOString(),
-            is_active: true,
-            is_trial: false,
-          })
-          .eq('id', id);
+        const { error } = await adminExtendSubscription(btn.dataset.id, 30);
 
         if (error) {
           console.error(error);
@@ -501,11 +500,11 @@ export async function renderAdmin(container) {
     const theme = container.querySelector('#editTheme').value;
     const title = container.querySelector('#editTitle').value.trim();
     const phone = container.querySelector('#editPhone').value.trim();
-    const slug = container.querySelector('#editSlug').value.trim();
     const description = container.querySelector('#editDescription').value.trim();
     const gtag_label = container.querySelector('#editGtag').value.trim();
     const working_hours = container.querySelector('#editWorkingHours').value.trim();
     const is_active = container.querySelector('#editIsActive').value === 'true';
+    const is_trial = container.querySelector('#editIsTrial').value === 'true';
 
     const whatsapp = container.querySelector('#editWhatsapp').value.trim();
     const instagram = container.querySelector('#editInstagram').value.trim();
@@ -514,7 +513,7 @@ export async function renderAdmin(container) {
 
     const expiresInput = container.querySelector('#editExpiresAt').value;
 
-    if (!title || !phone || !slug || !expiresInput) {
+    if (!title || !phone || !expiresInput) {
       showToast('أكمل الحقول المطلوبة', 'error');
       return;
     }
@@ -527,25 +526,21 @@ export async function renderAdmin(container) {
 
     const expires_at = expiresDate.toISOString();
 
-    const { error: err } = await supabase
-      .from('pages')
-      .update({
-        theme,
-        title,
-        company_name: title,
-        phone,
-        slug,
-        description,
-        gtag_label,
-        working_hours,
-        is_active,
-        whatsapp,
-        instagram,
-        snapchat,
-        tiktok,
-        expires_at,
-      })
-      .eq('id', id);
+    const { error: err } = await adminUpdatePage(id, {
+      theme,
+      title,
+      phone,
+      description,
+      gtag_label,
+      working_hours,
+      is_active,
+      is_trial,
+      whatsapp,
+      instagram,
+      snapchat,
+      tiktok,
+      expires_at,
+    });
 
     if (err) {
       console.error(err);

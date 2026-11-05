@@ -36,3 +36,26 @@ export function fetchAllPages() {
 export function setPageActive(id, active) {
   return supabase.rpc('admin_set_page_active', { p_id: id, p_active: active });
 }
+
+export function adminUpdatePage(id, values) {
+  return supabase.rpc('admin_update_page', {
+    p_id: id,
+    p_title: values.title,
+    p_phone: values.phone,
+    p_description: values.description,
+    p_theme: values.theme,
+    p_working_hours: values.working_hours,
+    p_gtag_label: values.gtag_label,
+    p_whatsapp: values.whatsapp,
+    p_instagram: values.instagram,
+    p_snapchat: values.snapchat,
+    p_tiktok: values.tiktok,
+    p_is_active: values.is_active,
+    p_is_trial: values.is_trial,
+    p_expires_at: values.expires_at,
+  });
+}
+
+export function adminExtendSubscription(id, days) {
+  return supabase.rpc('admin_extend_subscription', { p_id: id, p_days: days });
+}
