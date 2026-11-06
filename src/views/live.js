@@ -259,7 +259,7 @@ function updateSEO(page) {
 }
 
 export async function renderLive(container, slug) {
-  const cleanSlug = decodeURIComponent(slug).trim();
+  const cleanSlug = String(slug).trim();
 
   container.innerHTML = `
     <div class="min-h-screen bg-slate-950 flex items-center justify-center p-6 text-slate-400">

@@ -13,9 +13,13 @@ export function updatePage(userId, values) {
 }
 
 export async function fetchPublicPage(slug) {
-  const { data, error } = await supabase.rpc('get_public_page', { p_slug: slug });
-  if (error) return { data: null, error };
-  return { data: data?.[0] ?? null, error: null };
+  try {
+    const { data, error } = await supabase.rpc('get_public_page', { p_slug: slug });
+    if (error) return { data: null, error };
+    return { data: data?.[0] ?? null, error: null };
+  } catch (error) {
+    return { data: null, error };
+  }
 }
 
 export function recordPageView(slug) {
