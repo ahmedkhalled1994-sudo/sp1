@@ -3,37 +3,7 @@ import { createContactTracker, setupGoogleAdsTracking } from '../lib/conversion-
 import { escapeHtml } from '../lib/dom.js';
 import { copyText, showToast } from '../lib/feedback.js';
 import { DEFAULT_AD_CURRENCY } from '../lib/constants.js';
-
-const THEMES = {
-  emerald: {
-    bg: 'bg-slate-950',
-    text: 'text-slate-100',
-    iconBg: 'bg-gradient-to-tr from-emerald-500 to-teal-400 text-slate-950 shadow-emerald-500/20',
-    badge: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
-    callBtn: 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/30',
-    badgeIcon: 'text-emerald-400',
-    tagColor: 'text-emerald-400',
-  },
-  blue: {
-    bg: 'bg-slate-950',
-    text: 'text-slate-100',
-    iconBg: 'bg-gradient-to-tr from-blue-600 to-cyan-500 text-white shadow-blue-500/25',
-    badge: 'bg-blue-500/10 border-blue-500/20 text-blue-400',
-    callBtn: 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/35',
-    badgeIcon: 'text-blue-400',
-    tagColor: 'text-blue-400',
-  },
-  gold: {
-    bg: 'bg-neutral-950',
-    text: 'text-amber-50',
-    iconBg: 'bg-gradient-to-tr from-amber-500 to-yellow-400 text-neutral-950 shadow-amber-500/25',
-    badge: 'bg-amber-500/10 border-amber-500/20 text-amber-400',
-    callBtn:
-      'bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-neutral-950 shadow-amber-500/30',
-    badgeIcon: 'text-amber-400',
-    tagColor: 'text-amber-400',
-  },
-};
+import { getTheme } from '../lib/themes.js';
 
 function safeUrl(url) {
   try {
@@ -269,7 +239,7 @@ export async function renderLive(container, slug, { returnTo = null } = {}) {
     return;
   }
 
-  const currentTheme = THEMES[page.theme] || THEMES.emerald;
+  const currentTheme = getTheme(page.theme);
 
   const gtagLabel = page.gtag_label || page.conversion_label || '';
   const currency = page.currency || DEFAULT_AD_CURRENCY;
