@@ -23,6 +23,8 @@ const PLAN_FIELDS = [
   { suffix: 'duration', label: 'المدة' },
   { suffix: 'old_price', label: 'السعر القديم', required: true },
   { suffix: 'new_price', label: 'سعر العرض', required: true },
+  { suffix: 'days', label: 'عدد الأيام التي تُضاف للصفحة بعد الدفع', required: true, type: 'number', min: 1, max: 366 },
+  { suffix: 'variant_id', label: 'رقم الباقة في Lemon Squeezy (Variant ID) - اتركه فارغاً للدفع عبر واتساب', ltr: true },
 ];
 
 const INPUT_CLASS =
@@ -103,12 +105,24 @@ function readValues(form) {
     values[key] = String(value).trim();
   }
   values.trial_days = Number(values.trial_days);
+  for (const number of PLAN_NUMBERS) {
+    values[`plan${number}_days`] = Number(values[`plan${number}_days`]);
+  }
   return values;
 }
 
 function validateValues(values) {
   if (!Number.isInteger(values.trial_days) || values.trial_days < 1 || values.trial_days > 30) {
     return 'مدة التجربة يجب أن تكون عدداً صحيحاً بين 1 و 30';
+  }
+  for (const number of PLAN_NUMBERS) {
+    const days = values[`plan${number}_days`];
+    if (!Number.isInteger(days) || days < 1 || days > 366) {
+      return `عدد أيام ${PLAN_TITLES[number]} يجب أن يكون بين 1 و 366`;
+    }
+    if (values[`plan${number}_variant_id`] && !/^\d{1,12}$/.test(values[`plan${number}_variant_id`])) {
+      return `رقم الباقة في Lemon Squeezy لـ ${PLAN_TITLES[number]} يجب أن يكون أرقاماً فقط`;
+    }
   }
   return null;
 }

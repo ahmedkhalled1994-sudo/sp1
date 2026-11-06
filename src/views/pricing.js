@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase.js';
 import { navigate } from '../lib/router.js';
 import { getSession } from '../lib/session.js';
+import { showToast } from '../lib/feedback.js';
 
 const DEFAULTS = {
   whatsapp: '96566217577',
@@ -20,8 +21,51 @@ function getWhatsAppCheckoutLink(whatsappNumber, planName, oldPrice, newPrice) {
   return `https://wa.me/${cleanPhone}?text=${msg}`;
 }
 
+function ctaContent(online, iconClass, label) {
+  return online
+    ? `<i class="fa-solid fa-credit-card text-base"></i><span>ادفع الآن - ${label}</span>`
+    : `<i class="fa-brands fa-whatsapp ${iconClass}"></i><span>${label}</span>`;
+}
+
+const CHECKOUT_ERRORS = {
+  no_page: 'أنشئ صفحتك واحفظها أولاً، ثم اختر الباقة',
+  unauthorized: 'سجّل الدخول أولاً لإتمام الدفع',
+};
+
+async function startCheckout(plan, fallbackHref, button) {
+  const { user } = getSession();
+  if (!user) {
+    showToast('سجّل الدخول أولاً لإتمام الدفع', 'error');
+    navigate('login');
+    return;
+  }
+
+  button.classList.add('opacity-60', 'pointer-events-none');
+  const { data, error } = await supabase.functions.invoke('lemon-checkout', {
+    body: { plan, return_url: `${window.location.origin}${window.location.pathname}` },
+  });
+  button.classList.remove('opacity-60', 'pointer-events-none');
+
+  if (!error && typeof data?.url === 'string' && data.url.startsWith('https://')) {
+    window.location.href = data.url;
+    return;
+  }
+
+  let code = data?.error;
+  if (!code && error?.context?.json) {
+    code = (await error.context.json().catch(() => null))?.error;
+  }
+
+  if (code === 'payments_not_configured') {
+    window.open(fallbackHref, '_blank', 'noopener');
+    return;
+  }
+  showToast(CHECKOUT_ERRORS[code] ?? 'تعذر فتح صفحة الدفع، حاول مرة أخرى', 'error');
+  if (code === 'no_page') navigate('dashboard');
+}
+
 export async function renderPricing(container) {
-  let settings = { ...DEFAULTS };
+  let settings = { ...DEFAULTS, online: {} };
 
   try {
     const { data } = await supabase
@@ -36,6 +80,11 @@ export async function renderPricing(container) {
         headline: data.headline || DEFAULTS.headline,
         subheadline: data.subheadline || DEFAULTS.subheadline,
         trial_days: data.trial_days || DEFAULTS.trial_days,
+        online: {
+          1: Boolean(data.plan1_variant_id),
+          2: Boolean(data.plan2_variant_id),
+          3: Boolean(data.plan3_variant_id),
+        },
         plan1: {
           name: data.plan1_name || DEFAULTS.plan1.name,
           old: data.plan1_old_price || DEFAULTS.plan1.old,
@@ -110,9 +159,8 @@ export async function renderPricing(container) {
               <li class="flex items-center gap-2.5"><i class="fa-solid fa-circle-check text-emerald-400"></i> تفعيل فوري ومباشر على الرابط</li>
             </ul>
           </div>
-          <a href="${getWhatsAppCheckoutLink(settings.whatsapp, settings.plan1.name, settings.plan1.old, settings.plan1.new)}" target="_blank" class="w-full py-3.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 font-bold text-sm flex items-center justify-center gap-2 transition active:scale-95 text-center">
-            <i class="fa-brands fa-whatsapp text-emerald-400 text-base"></i>
-            <span>تفعيل العرض بـ ${settings.plan1.new}</span>
+          <a href="${getWhatsAppCheckoutLink(settings.whatsapp, settings.plan1.name, settings.plan1.old, settings.plan1.new)}" data-plan="1" target="_blank" rel="noopener" class="w-full py-3.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 font-bold text-sm flex items-center justify-center gap-2 transition active:scale-95 text-center">
+            ${ctaContent(settings.online[1], 'text-emerald-400 text-base', `تفعيل العرض بـ ${settings.plan1.new}`)}
           </a>
         </div>
 
@@ -144,9 +192,8 @@ export async function renderPricing(container) {
               <li class="flex items-center gap-2.5"><i class="fa-solid fa-circle-check text-emerald-400"></i> استقرار الإعلان لمدة 90 يوماً متواصلة</li>
             </ul>
           </div>
-          <a href="${getWhatsAppCheckoutLink(settings.whatsapp, settings.plan2.name, settings.plan2.old, settings.plan2.new)}" target="_blank" class="w-full py-4 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm flex items-center justify-center gap-2 transition active:scale-95 shadow-lg shadow-emerald-500/25 text-center">
-            <i class="fa-brands fa-whatsapp text-lg"></i>
-            <span>تفعيل عرض الـ ${settings.plan2.new} عبر واتساب</span>
+          <a href="${getWhatsAppCheckoutLink(settings.whatsapp, settings.plan2.name, settings.plan2.old, settings.plan2.new)}" data-plan="2" target="_blank" rel="noopener" class="w-full py-4 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm flex items-center justify-center gap-2 transition active:scale-95 shadow-lg shadow-emerald-500/25 text-center">
+            ${ctaContent(settings.online[2], 'text-lg', settings.online[2] ? `تفعيل عرض الـ ${settings.plan2.new}` : `تفعيل عرض الـ ${settings.plan2.new} عبر واتساب`)}
           </a>
         </div>
 
@@ -174,9 +221,8 @@ export async function renderPricing(container) {
               <li class="flex items-center gap-2.5"><i class="fa-solid fa-circle-check text-emerald-400"></i> أولوية قصوى ودعم فني مخصص على مدار الساعة</li>
             </ul>
           </div>
-          <a href="${getWhatsAppCheckoutLink(settings.whatsapp, settings.plan3.name, settings.plan3.old, settings.plan3.new)}" target="_blank" class="w-full py-3.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 font-bold text-sm flex items-center justify-center gap-2 transition active:scale-95 text-center">
-            <i class="fa-brands fa-whatsapp text-emerald-400 text-base"></i>
-            <span>تفعيل العرض السنوي بـ ${settings.plan3.new}</span>
+          <a href="${getWhatsAppCheckoutLink(settings.whatsapp, settings.plan3.name, settings.plan3.old, settings.plan3.new)}" data-plan="3" target="_blank" rel="noopener" class="w-full py-3.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 font-bold text-sm flex items-center justify-center gap-2 transition active:scale-95 text-center">
+            ${ctaContent(settings.online[3], 'text-emerald-400 text-base', `تفعيل العرض السنوي بـ ${settings.plan3.new}`)}
           </a>
         </div>
       </div>
@@ -193,6 +239,15 @@ export async function renderPricing(container) {
       </div>
     </div>
   `;
+
+  container.querySelectorAll('a[data-plan]').forEach((link) => {
+    const plan = Number(link.dataset.plan);
+    if (!settings.online[plan]) return;
+    link.addEventListener('click', (event) => {
+      event.preventDefault();
+      startCheckout(plan, link.href, link);
+    });
+  });
 
   const trialBtn = container.querySelector('#trialBtn');
   if (trialBtn) {

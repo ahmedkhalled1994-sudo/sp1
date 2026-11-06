@@ -1,0 +1,5 @@
+[functions.lemon-checkout]
+verify_jwt = true
+
+[functions.lemon-webhook]
+verify_jwt = false

@@ -41,6 +41,14 @@ export async function renderSuccess(container) {
 
   const isTrial = page.is_trial === true;
 
+  const params = new URLSearchParams(window.location.search);
+  const justPaid = params.get('paid') === '1';
+  if (justPaid) {
+    params.delete('paid');
+    const query = params.toString();
+    history.replaceState(null, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
+  }
+
   container.innerHTML = `
     <div class="py-16 px-4 max-w-xl mx-auto text-center space-y-6 animate-fade-in">
       <div class="glass-card p-8 rounded-3xl space-y-6 shadow-2xl border border-emerald-500/40 glow-effect">
@@ -53,7 +61,17 @@ export async function renderSuccess(container) {
           <p class="text-xs text-slate-300">استخدم هذا الرابط في خانة الرابط النهائي لإعلاناتك في Google Ads:</p>
         </div>
 
-        ${isTrial && daysLeft ? `
+        ${justPaid ? `
+          <div class="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-4 text-center">
+            <p class="text-emerald-300 text-sm font-bold">
+              <i class="fa-solid fa-circle-check ml-1"></i>
+              شكراً لك! تم استلام دفعتك
+            </p>
+            <p class="text-slate-300 text-xs mt-1">يتم تفعيل اشتراكك تلقائياً خلال لحظات، وستصلك الفاتورة على بريدك.</p>
+          </div>
+        ` : ''}
+
+        ${isTrial && daysLeft && !justPaid ? `
           <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 text-center">
             <p class="text-amber-300 text-sm font-bold">
               <i class="fa-solid fa-gift ml-1"></i>
@@ -87,7 +105,7 @@ export async function renderSuccess(container) {
           </a>
         </div>
 
-        ${isTrial ? `
+        ${isTrial && !justPaid ? `
           <div class="pt-4 border-t border-slate-800">
             <p class="text-xs text-slate-400 mb-3">هل أعجبتك النتيجة؟ اختر باقتك الآن:</p>
             <button id="go-pricing" class="w-full bg-linear-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-black py-3 rounded-xl text-xs transition cursor-pointer">
