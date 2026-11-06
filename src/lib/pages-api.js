@@ -1,7 +1,8 @@
 import { supabase } from './supabase.js';
 
-export function publicPageUrl(slug) {
-  return `${window.location.origin}${window.location.pathname}?p=${encodeURIComponent(slug)}`;
+export function publicPageUrl(slug, { preview = false } = {}) {
+  const base = `${window.location.origin}${window.location.pathname}?p=${encodeURIComponent(slug)}`;
+  return preview ? `${base}&preview=1` : base;
 }
 
 export function fetchMyPage(userId) {

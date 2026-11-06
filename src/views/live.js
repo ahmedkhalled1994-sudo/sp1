@@ -258,7 +258,7 @@ function updateSEO(page) {
   }
 }
 
-export async function renderLive(container, slug) {
+export async function renderLive(container, slug, { isOwnerPreview = false } = {}) {
   const cleanSlug = String(slug).trim();
 
   container.innerHTML = `
@@ -325,7 +325,7 @@ export async function renderLive(container, slug) {
   updateSEO(page);
   setupGoogleAdsTracking(gtagLabel);
 
-  if (!AntiBotSystem.isAutomatedBot()) {
+  if (!isOwnerPreview && !AntiBotSystem.isAutomatedBot()) {
     try {
       await recordPageView(cleanSlug);
     } catch (_) {}
@@ -453,7 +453,27 @@ export async function renderLive(container, slug) {
     `
     : '';
 
+  const dashboardHref = `${window.location.pathname}#dashboard`;
+
+  const previewBar = isOwnerPreview
+    ? `
+      <div class="sticky top-0 z-50 w-full bg-slate-900/95 backdrop-blur border-b border-slate-800">
+        <div class="max-w-md mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
+          <span class="text-[11px] text-slate-300 font-bold">
+            <i class="fa-regular fa-eye ml-1 text-emerald-400"></i>
+            معاينة صفحتك كما يراها الزوار
+          </span>
+          <a href="${escapeHtml(dashboardHref)}" class="text-[11px] font-black px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition">
+            <i class="fa-solid fa-arrow-right ml-1"></i>
+            رجوع للوحة التحكم
+          </a>
+        </div>
+      </div>
+    `
+    : '';
+
   container.innerHTML = `
+    ${previewBar}
     <div class="min-h-screen ${currentTheme.bg} ${currentTheme.text} flex flex-col justify-between items-center px-4 py-8 max-w-md mx-auto transition-colors duration-300">
       ${trialBanner}
 

@@ -31,11 +31,12 @@ async function boot() {
   const nav = document.getElementById('nav');
   const app = document.getElementById('app');
 
-  const liveSlug = new URLSearchParams(window.location.search).get('p');
+  const params = new URLSearchParams(window.location.search);
+  const liveSlug = params.get('p');
 
   if (liveSlug) {
     nav.hidden = true;
-    await renderLive(app, liveSlug);
+    await renderLive(app, liveSlug, { isOwnerPreview: params.get('preview') === '1' });
     return;
   }
 

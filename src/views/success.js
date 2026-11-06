@@ -82,7 +82,7 @@ export async function renderSuccess(container) {
           <button id="edit-page" type="button" class="w-full bg-slate-900 border border-slate-700 hover:bg-slate-800 text-white font-bold py-3 rounded-xl text-xs transition cursor-pointer">
             تعديل البيانات
           </button>
-          <a id="open-page" href="${link}" target="_blank" rel="noopener noreferrer" class="w-full text-center bg-linear-to-r from-emerald-500 to-teal-400 text-slate-950 font-black py-3 rounded-xl text-xs transition cursor-pointer shadow-lg">
+          <a id="open-page" href="${publicPageUrl(page.slug, { preview: true })}" class="w-full text-center bg-linear-to-r from-emerald-500 to-teal-400 text-slate-950 font-black py-3 rounded-xl text-xs transition cursor-pointer shadow-lg">
             معاينة الصفحة الحية
           </a>
         </div>
