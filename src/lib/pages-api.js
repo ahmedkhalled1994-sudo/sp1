@@ -1,5 +1,9 @@
 import { supabase } from './supabase.js';
 
+export function publicPageUrl(slug) {
+  return `${window.location.origin}${window.location.pathname}?p=${encodeURIComponent(slug)}`;
+}
+
 export function fetchMyPage(userId) {
   return supabase.from('pages').select('*').eq('user_id', userId).maybeSingle();
 }

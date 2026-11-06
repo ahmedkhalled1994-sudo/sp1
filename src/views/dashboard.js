@@ -1,10 +1,10 @@
 import { navigate } from '../lib/router.js';
 import { getSession } from '../lib/session.js';
 import { createPageCard } from '../components/page-card.js';
-import { createPage, fetchMyPage, updatePage } from '../lib/pages-api.js';
+import { createPage, fetchMyPage, publicPageUrl, updatePage } from '../lib/pages-api.js';
 import { validatePageInput } from '../lib/page-validation.js';
 import { friendlyError } from '../lib/messages.js';
-import { showToast } from '../lib/feedback.js';
+import { copyText, showToast } from '../lib/feedback.js';
 import { el } from '../lib/dom.js';
 import {
   buildWorkingHours,
@@ -75,6 +75,58 @@ function setStatus(statusEl, page) {
     'text-[11px] px-3 py-1 rounded-full font-bold border border-emerald-500/40 text-emerald-400 bg-emerald-500/10 whitespace-nowrap';
 }
 
+function renderLinkBox(linkEl, page) {
+  if (!page?.slug) {
+    linkEl.hidden = true;
+    return;
+  }
+
+  const url = publicPageUrl(page.slug);
+
+  const header = el('div', 'flex items-center justify-between gap-2');
+  header.append(
+    el('h2', 'font-black text-sm text-white', 'رابط صفحتك'),
+    el('span', 'text-[11px] text-slate-400', 'استخدمه في إعلانات جوجل'),
+  );
+
+  const input = el(
+    'input',
+    'w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-emerald-400 font-mono outline-none',
+  );
+  input.type = 'text';
+  input.readOnly = true;
+  input.dir = 'ltr';
+  input.value = url;
+  input.setAttribute('aria-label', 'رابط صفحتك');
+  input.addEventListener('focus', () => input.select());
+
+  const copyBtn = el(
+    'button',
+    'flex-1 bg-slate-900 border border-slate-700 hover:bg-slate-800 text-white font-bold py-2.5 rounded-xl text-xs transition cursor-pointer',
+    'نسخ الرابط',
+  );
+  copyBtn.type = 'button';
+  copyBtn.addEventListener('click', async () => {
+    const copied = await copyText(url);
+    showToast(copied ? 'تم نسخ الرابط' : 'تعذر النسخ، انسخ الرابط يدوياً', copied ? 'success' : 'error');
+  });
+
+  const openLink = el(
+    'a',
+    'flex-1 text-center bg-linear-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black py-2.5 rounded-xl text-xs transition shadow-lg',
+    'معاينة الصفحة الحية',
+  );
+  openLink.href = url;
+  openLink.target = '_blank';
+  openLink.rel = 'noopener noreferrer';
+
+  const actions = el('div', 'flex gap-2');
+  actions.append(copyBtn, openLink);
+
+  linkEl.hidden = false;
+  linkEl.replaceChildren(header, input, actions);
+}
+
 function noticeBlock(text, tone) {
   const box = el(
     'div',
@@ -119,6 +171,8 @@ export async function renderDashboard(container) {
       </section>
 
       <aside class="lg:col-span-5 space-y-6 lg:sticky lg:top-24">
+        <div id="page-link" class="glass-card rounded-3xl p-5 space-y-3" hidden></div>
+
         <div class="bg-slate-950 border-4 border-slate-800 rounded-[45px] p-4">
           <div id="preview"></div>
         </div>
@@ -134,6 +188,7 @@ export async function renderDashboard(container) {
   const statusEl = container.querySelector('#page-status');
   const previewEl = container.querySelector('#preview');
   const statsEl = container.querySelector('#stats');
+  const linkEl = container.querySelector('#page-link');
 
   let currentPage = null;
   let canSave = true;
@@ -194,6 +249,7 @@ export async function renderDashboard(container) {
   }
 
   setStatus(statusEl, currentPage);
+  renderLinkBox(linkEl, currentPage);
   renderStats(statsEl, currentPage);
   syncHoursBox(form);
   updatePreview();

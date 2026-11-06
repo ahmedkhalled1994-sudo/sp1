@@ -1,13 +1,9 @@
 import { navigate } from '../lib/router.js';
 import { getSession } from '../lib/session.js';
-import { fetchMyPage } from '../lib/pages-api.js';
+import { fetchMyPage, publicPageUrl } from '../lib/pages-api.js';
 import { copyText, showToast } from '../lib/feedback.js';
 import { friendlyError } from '../lib/messages.js';
 import { el, messageBlock } from '../lib/dom.js';
-
-function adLink(slug) {
-  return `${window.location.origin}${window.location.pathname}?p=${encodeURIComponent(slug)}`;
-}
 
 export async function renderSuccess(container) {
   const { user } = getSession();
@@ -33,7 +29,7 @@ export async function renderSuccess(container) {
     return;
   }
 
-  const link = adLink(page.slug);
+  const link = publicPageUrl(page.slug);
 
   let daysLeft = '';
   if (page.expires_at) {
