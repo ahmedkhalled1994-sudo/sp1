@@ -1,0 +1,6 @@
+{
+  "name": "PAG ADS",
+  "description": "منصة صفحة إعلان (PAG ADS) لصفحات الهبوط السريعة لإعلانات جوجل مع الاتصال المباشر والواتساب وتتبع التحويلات.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

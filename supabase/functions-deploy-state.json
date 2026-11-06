@@ -1,0 +1,13 @@
+{
+  "projectId": "72612230",
+  "functions": {
+    "lemon-checkout": {
+      "hasChanged": false,
+      "hash": "1b0063999fd8cf259d8cd6d1ead05afd948fc98cbcebe494887895e45065f698"
+    },
+    "lemon-webhook": {
+      "hasChanged": false,
+      "hash": "92ee99a1fdc0df09c9ffda20477252ed2823574507e4db161f62ffaf6b0f7e7f"
+    }
+  }
+}

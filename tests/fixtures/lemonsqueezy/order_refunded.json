@@ -1,0 +1,46 @@
+{
+  "meta": {
+    "event_name": "order_refunded",
+    "custom_data": {
+      "user_id": "11111111-1111-4111-8111-111111111111",
+      "page_id": "22222222-2222-4222-8222-222222222222",
+      "plan": "1"
+    }
+  },
+  "data": {
+    "type": "orders",
+    "id": "1001",
+    "attributes": {
+      "store_id": 55001,
+      "customer_id": 8801,
+      "identifier": "104e18a2-d755-4d4b-80c4-a6c1dcbe1c10",
+      "order_number": 1001,
+      "user_name": "أحمد خالد",
+      "user_email": "customer@example.com",
+      "currency": "USD",
+      "currency_rate": "1.0000",
+      "subtotal": 999,
+      "discount_total": 0,
+      "tax": 200,
+      "total": 1199,
+      "subtotal_formatted": "$9.99",
+      "discount_total_formatted": "$0.00",
+      "tax_formatted": "$2.00",
+      "total_formatted": "$11.99",
+      "status": "refunded",
+      "status_formatted": "Refunded",
+      "refunded": true,
+      "refunded_at": "2026-11-06T12:00:00.000000Z",
+      "first_order_item": {
+        "id": 1,
+        "order_id": 1001,
+        "product_id": 10,
+        "variant_id": 101001,
+        "test_mode": true
+      },
+      "created_at": "2026-11-06T10:00:00.000000Z",
+      "updated_at": "2026-11-06T12:00:00.000000Z",
+      "test_mode": true
+    }
+  }
+}
