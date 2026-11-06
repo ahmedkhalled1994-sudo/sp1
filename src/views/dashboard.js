@@ -94,7 +94,7 @@ export async function renderDashboard(container) {
 
   container.innerHTML = `
     <div class="max-w-6xl mx-auto p-4 md:p-8 grid lg:grid-cols-12 gap-8 items-start animate-fade-in">
-      <section class="lg:col-span-7 glass-card rounded-3xl p-6 space-y-5 shadow-2xl">
+      <section class="lg:col-span-7 glass-card rounded-3xl p-4 sm:p-6 space-y-5 shadow-2xl">
         <header class="flex items-start justify-between gap-3 border-b border-slate-800 pb-4">
           <div>
             <h1 class="font-black text-lg text-white">تصميم صفحتك</h1>
@@ -118,7 +118,7 @@ export async function renderDashboard(container) {
         </form>
       </section>
 
-      <aside class="lg:col-span-5 space-y-6">
+      <aside class="lg:col-span-5 space-y-6 lg:sticky lg:top-24">
         <div class="bg-slate-950 border-4 border-slate-800 rounded-[45px] p-4">
           <div id="preview"></div>
         </div>
@@ -252,14 +252,7 @@ export async function renderDashboard(container) {
       payload[key] = String(payload[key] || '').trim();
     });
 
-    // نظام التجربة المجانية: صفحة جديدة بدون تاريخ انتهاء تحصل على 7 أيام
-    if (isNew && !payload.expires_at) {
-      const trialEnd = new Date();
-      trialEnd.setDate(trialEnd.getDate() + 7);
-      payload.expires_at = trialEnd.toISOString();
-      payload.is_trial = true;
-      payload.is_active = true;
-    }
+    if (!isNew) delete payload.slug;
 
     const { error } = isNew ? await createPage(payload) : await updatePage(user.id, payload);
 
@@ -272,7 +265,7 @@ export async function renderDashboard(container) {
     }
 
     if (isNew) {
-      showToast('🎉 تم إنشاء صفحتك التجريبية بنجاح! ستنتهي خلال 7 أيام', 'success');
+      showToast('تم إنشاء صفحتك التجريبية بنجاح!', 'success');
       navigate('success');
     } else {
       showToast('تم تحديث صفحتك بنجاح', 'success');

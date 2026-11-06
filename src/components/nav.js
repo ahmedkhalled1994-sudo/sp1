@@ -17,13 +17,13 @@ function linkButton(route, label, extraClass = '') {
 export function renderNav(nav) {
   const { user, isAdmin } = getSession();
 
-  const inner = el('div', 'max-w-6xl mx-auto px-4 py-3.5 flex items-center justify-between gap-4');
+  const inner = el('div', 'max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-3');
 
   const brand = el('button', 'flex items-center gap-2.5 cursor-pointer shrink-0');
   brand.dataset.route = 'home';
   brand.innerHTML = `<span class="w-9 h-9 bg-linear-to-tr from-emerald-500 to-teal-400 rounded-xl flex items-center justify-center text-slate-950 font-black text-lg shadow-lg shadow-emerald-500/20">⚡</span><span class="font-black text-lg text-white tracking-tight">سبيد <span class="text-emerald-400">لاندنج</span></span>`;
 
-  const links = el('div', 'flex items-center gap-4 md:gap-8 text-xs md:text-sm font-semibold text-slate-300 overflow-x-auto');
+  const links = el('div', 'order-last md:order-none w-full md:w-auto flex items-center gap-4 md:gap-8 text-xs md:text-sm font-semibold text-slate-300 overflow-x-auto pb-1');
   PUBLIC_LINKS.forEach(({ route, label }) => links.append(linkButton(route, label)));
   if (isAdmin) links.append(linkButton('admin', 'لوحة الإدارة', 'text-amber-400 hover:text-amber-300 font-bold'));
 

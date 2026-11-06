@@ -43,6 +43,11 @@ export function renderHome(container) {
           </article>
         `).join('')}
       </section>
+
+      <footer class="max-w-6xl mx-auto border-t border-slate-800 pt-6 flex flex-wrap items-center justify-center gap-6 text-xs font-bold text-slate-400">
+        <button data-route="terms" class="hover:text-emerald-400 transition cursor-pointer">شروط الاستخدام</button>
+        <button data-route="privacy" class="hover:text-emerald-400 transition cursor-pointer">سياسة الخصوصية</button>
+      </footer>
     </div>
   `;
 

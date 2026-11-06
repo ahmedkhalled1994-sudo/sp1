@@ -8,6 +8,7 @@ import { renderDashboard } from './views/dashboard.js';
 import { renderHome } from './views/home.js';
 import { renderLive } from './views/live.js';
 import { renderLogin } from './views/login.js';
+import { renderPrivacy, renderTerms } from './views/legal.js';
 import { renderPricing } from './views/pricing.js';
 import { renderSuccess } from './views/success.js';
 
@@ -22,6 +23,8 @@ const ROUTES = {
   login: renderLogin,
   admin: renderAdmin,
   'admin-pricing': renderAdminPricing,
+  terms: renderTerms,
+  privacy: renderPrivacy,
 };
 
 async function boot() {

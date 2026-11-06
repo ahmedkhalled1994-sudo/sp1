@@ -16,6 +16,20 @@ export async function renderAdmin(container) {
 
   const pagesRes = await supabase.from('pages').select('*').order('created_at', { ascending: false });
 
+  if (pagesRes.error) {
+    console.error(pagesRes.error);
+    container.innerHTML = `
+      <div class="min-h-screen bg-slate-950 p-6 flex items-center justify-center">
+        <div class="max-w-sm text-center space-y-4">
+          <p class="text-rose-400 font-bold">تعذر تحميل الصفحات. تحقق من اتصالك ثم أعد المحاولة.</p>
+          <button id="retryAdmin" type="button" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black px-6 py-3 rounded-xl cursor-pointer">إعادة المحاولة</button>
+        </div>
+      </div>
+    `;
+    container.querySelector('#retryAdmin').addEventListener('click', () => renderAdmin(container));
+    return;
+  }
+
   const allPages = pagesRes.data || [];
 
   const now = new Date();
@@ -169,7 +183,7 @@ export async function renderAdmin(container) {
               />
             </div>
 
-            <div class="grid grid-cols-2 gap-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label class="block text-xs font-bold text-slate-400 mb-1">رقم الهاتف للاتصال</label>
                 <input
@@ -256,7 +270,7 @@ export async function renderAdmin(container) {
                 روابط التواصل الاجتماعي
               </summary>
 
-              <div class="grid grid-cols-2 gap-3 mt-3">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                 <div>
                   <label class="block text-[11px] font-bold text-slate-400 mb-1">واتساب</label>
                   <input
@@ -325,7 +339,7 @@ export async function renderAdmin(container) {
     const list = container.querySelector('#pagesList');
 
     if (items.length === 0) {
-      list.innerHTML = `<div class="col-span-2 text-center py-12 text-slate-500">لا توجد صفحات مطابقة للبحث.</div>`;
+      list.innerHTML = `<div class="col-span-full text-center py-12 text-slate-500">لا توجد صفحات مطابقة للبحث.</div>`;
       return;
     }
 
@@ -476,7 +490,12 @@ export async function renderAdmin(container) {
           return;
         }
 
-        showToast('تم تمديد الاشتراك 30 يومًا وتفعيل الصفحة', 'success');
+        const extended = allPages.find((p) => p.id === btn.dataset.id);
+        if (extended?.is_active === false) {
+          showToast('تم تمديد الاشتراك 30 يومًا. الصفحة ما زالت موقوفة، فعّلها من زر التعديل', 'success');
+        } else {
+          showToast('تم تمديد الاشتراك 30 يومًا', 'success');
+        }
         await renderAdmin(container);
       });
     });
