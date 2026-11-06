@@ -1,6 +1,7 @@
 import { navigate } from '../lib/router.js';
 import { getSession } from '../lib/session.js';
-import { createPageCard } from '../components/page-card.js';
+import { landingPageMarkup } from '../components/landing-markup.js';
+import { getTheme } from '../lib/themes.js';
 import { createPage, fetchMyPage, publicPageUrl, updatePage } from '../lib/pages-api.js';
 import { validatePageInput } from '../lib/page-validation.js';
 import { friendlyError } from '../lib/messages.js';
@@ -173,8 +174,32 @@ export async function renderDashboard(container) {
       <aside class="lg:col-span-5 space-y-6 lg:sticky lg:top-24">
         <div id="page-link" class="glass-card rounded-3xl p-5 space-y-3" hidden></div>
 
-        <div class="bg-slate-950 border-4 border-slate-800 rounded-[45px] p-4">
-          <div id="preview"></div>
+        <div class="flex flex-col items-center gap-3">
+          <p class="text-[11px] text-slate-400 font-bold">
+            <i class="fa-solid fa-mobile-screen-button ml-1 text-emerald-400"></i>
+            معاينة مباشرة كما تظهر على الجوال
+          </p>
+          <div class="relative w-full max-w-[390px] rounded-[52px] bg-slate-900 p-3 shadow-2xl shadow-black/60 ring-1 ring-slate-700">
+            <span class="absolute -left-[3px] top-28 h-12 w-[3px] rounded-l bg-slate-700" aria-hidden="true"></span>
+            <span class="absolute -left-[3px] top-44 h-12 w-[3px] rounded-l bg-slate-700" aria-hidden="true"></span>
+            <span class="absolute -right-[3px] top-36 h-16 w-[3px] rounded-r bg-slate-700" aria-hidden="true"></span>
+
+            <div id="phone-screen" class="relative overflow-hidden rounded-[40px] bg-slate-950 transition-colors duration-300">
+              <div class="relative z-10 flex items-center justify-between px-7 pt-3 pb-1 text-[11px] font-bold text-slate-100" dir="ltr">
+                <span id="phone-clock"></span>
+                <span class="absolute left-1/2 top-2 h-6 w-24 -translate-x-1/2 rounded-full bg-black" aria-hidden="true"></span>
+                <span class="flex items-center gap-1.5 text-[10px]">
+                  <i class="fa-solid fa-signal"></i>
+                  <i class="fa-solid fa-wifi"></i>
+                  <i class="fa-solid fa-battery-three-quarters"></i>
+                </span>
+              </div>
+
+              <div id="preview" class="h-[680px] overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"></div>
+
+              <div class="pointer-events-none absolute bottom-2 left-1/2 h-1 w-28 -translate-x-1/2 rounded-full bg-slate-100/60" aria-hidden="true"></div>
+            </div>
+          </div>
         </div>
 
         <div id="stats" class="glass-card rounded-3xl p-6 space-y-4"></div>
@@ -189,6 +214,11 @@ export async function renderDashboard(container) {
   const notice = container.querySelector('#notice');
   const statusEl = container.querySelector('#page-status');
   const previewEl = container.querySelector('#preview');
+  const phoneScreen = container.querySelector('#phone-screen');
+  container.querySelector('#phone-clock').textContent = new Date().toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
   const statsEl = container.querySelector('#stats');
   const linkEl = container.querySelector('#page-link');
 
@@ -197,17 +227,19 @@ export async function renderDashboard(container) {
 
   function updatePreview() {
     const draft = readDraft(form);
+    const theme = draft.theme || 'emerald';
 
-    previewEl.replaceChildren(
-      createPageCard({
+    phoneScreen.className = `relative overflow-hidden rounded-[40px] transition-colors duration-300 ${getTheme(theme).bg}`;
+    previewEl.innerHTML = `<div class="pointer-events-none select-none min-h-full flex flex-col">${landingPageMarkup(
+      {
         ...draft,
-        theme: draft.theme || 'emerald',
+        theme,
         icon: draft.icon || '🎓',
         title: draft.title.trim() || 'اسم النشاط',
         working_hours: buildWorkingHours(draft),
-        is_active: true,
-      }),
-    );
+      },
+      { preview: true },
+    )}</div>`;
   }
 
   if (!user) {
