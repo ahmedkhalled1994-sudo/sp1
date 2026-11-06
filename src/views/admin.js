@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase.js';
 import { showToast } from '../lib/feedback.js';
 import { escapeHtml } from '../lib/dom.js';
 import { navigate } from '../lib/router.js';
-import { adminExtendSubscription, adminUpdatePage } from '../lib/pages-api.js';
+import { adminDeletePage, adminExtendSubscription, adminBanUser, adminUnbanUser, adminUpdatePage } from '../lib/pages-api.js';
 
 export async function renderAdmin(container) {
   container.innerHTML = `
@@ -14,10 +14,13 @@ export async function renderAdmin(container) {
     </div>
   `;
 
-  const pagesRes = await supabase.from('pages').select('*').order('created_at', { ascending: false });
+  const [pagesRes, bansRes] = await Promise.all([
+    supabase.from('pages').select('*').order('created_at', { ascending: false }),
+    supabase.from('banned_users').select('user_id'),
+  ]);
 
-  if (pagesRes.error) {
-    console.error(pagesRes.error);
+  if (pagesRes.error || bansRes.error) {
+    console.error(pagesRes.error || bansRes.error);
     container.innerHTML = `
       <div class="min-h-screen bg-slate-950 p-6 flex items-center justify-center">
         <div class="max-w-sm text-center space-y-4">
@@ -31,6 +34,7 @@ export async function renderAdmin(container) {
   }
 
   const allPages = pagesRes.data || [];
+  const bannedIds = new Set((bansRes.data || []).map((row) => row.user_id));
 
   const now = new Date();
 
@@ -439,6 +443,15 @@ export async function renderAdmin(container) {
                   : ''
               }
             </div>
+
+            <div class="flex flex-wrap items-center gap-2 pt-3 mt-3 border-t border-slate-800/60">
+              ${
+                bannedIds.has(page.user_id)
+                  ? `<button class="unban-btn py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer" data-user-id="${escapeHtml(page.user_id)}"><i class="fa-solid fa-user-check"></i> رفع الحظر عن الحساب</button>`
+                  : `<button class="ban-btn py-2 px-3 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer" data-id="${escapeHtml(page.id)}" data-title="${safeTitle}"><i class="fa-solid fa-user-slash"></i> حظر الحساب</button>`
+              }
+              <button class="delete-btn py-2 px-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer" data-id="${escapeHtml(page.id)}" data-title="${safeTitle}"><i class="fa-solid fa-trash-can"></i> حذف الصفحة</button>
+            </div>
           </div>
         `;
       })
@@ -448,6 +461,57 @@ export async function renderAdmin(container) {
   };
 
   const attachActions = () => {
+    container.querySelectorAll('.delete-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!window.confirm(`حذف الصفحة "${btn.dataset.title}" نهائياً؟ لا يمكن التراجع عن هذا الإجراء.`)) return;
+
+        const { error } = await adminDeletePage(btn.dataset.id);
+
+        if (error) {
+          console.error(error);
+          showToast('تعذر حذف الصفحة', 'error');
+          return;
+        }
+
+        showToast('تم حذف الصفحة', 'success');
+        await renderAdmin(container);
+      });
+    });
+
+    container.querySelectorAll('.ban-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!window.confirm(`حظر حساب صاحب الصفحة "${btn.dataset.title}"؟ سيتم إيقاف جميع صفحاته ومنعه من التعديل.`)) return;
+
+        const { error } = await adminBanUser(btn.dataset.id);
+
+        if (error) {
+          console.error(error);
+          showToast('تعذر حظر الحساب', 'error');
+          return;
+        }
+
+        showToast('تم حظر الحساب وإيقاف صفحاته', 'success');
+        await renderAdmin(container);
+      });
+    });
+
+    container.querySelectorAll('.unban-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!window.confirm('رفع الحظر عن هذا الحساب؟ ستبقى صفحاته موقوفة حتى تفعّلها يدويًا.')) return;
+
+        const { error } = await adminUnbanUser(btn.dataset.userId);
+
+        if (error) {
+          console.error(error);
+          showToast('تعذر رفع الحظر', 'error');
+          return;
+        }
+
+        showToast('تم رفع الحظر عن الحساب', 'success');
+        await renderAdmin(container);
+      });
+    });
+
     container.querySelectorAll('.edit-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
         const page = pagesWithStatus.find((p) => String(p.id) === String(btn.dataset.id));

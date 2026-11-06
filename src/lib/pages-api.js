@@ -59,3 +59,15 @@ export function adminUpdatePage(id, values) {
 export function adminExtendSubscription(id, days) {
   return supabase.rpc('admin_extend_subscription', { p_id: id, p_days: days });
 }
+
+export function adminDeletePage(id) {
+  return supabase.rpc('admin_delete_page', { p_id: id });
+}
+
+export function adminBanUser(pageId) {
+  return supabase.rpc('admin_ban_user', { p_page_id: pageId });
+}
+
+export function adminUnbanUser(userId) {
+  return supabase.rpc('admin_unban_user', { p_user_id: userId });
+}
