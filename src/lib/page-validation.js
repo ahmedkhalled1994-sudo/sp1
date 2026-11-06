@@ -25,6 +25,10 @@ function cleanHandle(value) {
   return String(value || '').trim().replace(/^@/, '');
 }
 
+export function isValidConversionLabel(value) {
+  return CONVERSION_LABEL_RE.test(value);
+}
+
 export function validatePageInput(raw, { isNew }) {
   const errors = {};
   const values = {};
@@ -79,10 +83,22 @@ export function validatePageInput(raw, { isNew }) {
   values.tiktok = tiktok;
 
   const conversionLabel = String(raw.conversion_label || '').trim();
-  if (conversionLabel && !CONVERSION_LABEL_RE.test(conversionLabel)) {
-    errors.conversion_label = 'الكود يجب أن يكون بالشكل: AW-123456789/AbC_DeF';
+  if (conversionLabel && !isValidConversionLabel(conversionLabel)) {
+    errors.conversion_label = 'الكود ناقص أو غير صحيح. يجب أن يحتوي على رقم الحساب ورمز التحويل معاً، مثال: AW-123456789/AbC_DeF';
   }
   values.conversion_label = conversionLabel;
+
+  const services = String(raw.services || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (services.length > 10) errors.services = 'أضف 10 خدمات كحد أقصى';
+  else if (services.some((line) => line.length > 80)) errors.services = 'كل خدمة يجب ألا تتجاوز 80 حرفاً';
+  values.services = services.join('\n');
+
+  const serviceArea = String(raw.service_area || '').trim();
+  if (serviceArea.length > 150) errors.service_area = 'منطقة الخدمة يجب ألا تتجاوز 150 حرفاً';
+  values.service_area = serviceArea;
 
   if (isNew) {
     const slug = slugify(raw.slug || title);

@@ -6,6 +6,8 @@ export const FORM_FIELD_NAMES = [
   'theme',
   'icon',
   'description',
+  'services',
+  'service_area',
   'phone',
   'hours_mode',
   'hours_from',
@@ -146,6 +148,20 @@ export function formFieldsMarkup() {
     )}
 
     ${field(
+      'services',
+      'الخدمات التي تقدمها',
+      `<textarea id="f-services" name="services" rows="4" class="${INPUT_CLASS} resize-none" placeholder="مثال:\nتنظيف شقق وفلل\nغسيل كنب وسجاد\nتعقيم شامل"></textarea>`,
+      'اكتب كل خدمة في سطر (حتى 10 خدمات). وجود الخدمات يرفع تقييم صفحتك في جوجل ويقلل رفض الإعلان.',
+    )}
+
+    ${field(
+      'service_area',
+      'منطقة الخدمة',
+      `<input id="f-service_area" name="service_area" type="text" placeholder="مثال: جميع مناطق الكويت" class="${INPUT_CLASS}" />`,
+      'المدن أو المناطق التي تخدمها.',
+    )}
+
+    ${field(
       'phone',
       'رقم الاتصال المباشر',
       `<input id="f-phone" name="phone" type="tel" dir="ltr" placeholder="+96599999999" class="${INPUT_CLASS}" />`,
@@ -156,7 +172,7 @@ export function formFieldsMarkup() {
       'conversion_label',
       'كود تحويل Google Ads (اختياري)',
       `<input id="f-conversion_label" name="conversion_label" type="text" dir="ltr" placeholder="AW-123456789/AbC_DeF" class="${INPUT_CLASS} font-mono" />`,
-      'يرسل عند ضغط زر الاتصال ليحتسب كتحويل في حسابك الإعلاني.',
+      'بدون هذا الكود لن تظهر الاتصالات في حسابك الإعلاني. تجده في جوجل للإعلانات: الأهداف ← التحويلات ← إعداد العلامة. يُحتسب التحويل عند ضغط زر الاتصال أو الواتساب.',
     )}
 
     <div class="space-y-3 pt-2 border-t border-slate-800">

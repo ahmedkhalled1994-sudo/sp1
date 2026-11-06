@@ -27,12 +27,45 @@ export async function fetchPublicPage(slug) {
   }
 }
 
-export function recordPageView(slug) {
-  return supabase.rpc('record_page_view', { p_slug: slug });
+const VISITOR_KEY = 'pag_vid';
+
+function visitorId() {
+  try {
+    let id = localStorage.getItem(VISITOR_KEY);
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem(VISITOR_KEY, id);
+    }
+    return id;
+  } catch {
+    return '';
+  }
 }
 
-export function recordCallClick(slug) {
-  return supabase.rpc('record_call_click', { p_slug: slug });
+export function adClickId() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('gclid') || params.get('gbraid') || params.get('wbraid') || '';
+}
+
+export async function logPageEvent(slug, eventType) {
+  const { data, error } = await supabase.rpc('log_page_event', {
+    p_slug: slug,
+    p_event: eventType,
+    p_visitor_id: visitorId(),
+    p_gclid: adClickId(),
+  });
+  if (error) throw error;
+  return data === true;
+}
+
+export function fetchRecentEvents(pageId, sinceIso) {
+  return supabase
+    .from('page_events')
+    .select('event_type, ip, from_ad, is_suspicious, suspicious_reason, created_at')
+    .eq('page_id', pageId)
+    .gte('created_at', sinceIso)
+    .order('created_at', { ascending: false })
+    .limit(2000);
 }
 
 export function fetchAllPages() {

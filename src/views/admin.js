@@ -3,6 +3,7 @@ import { showToast } from '../lib/feedback.js';
 import { escapeHtml } from '../lib/dom.js';
 import { navigate } from '../lib/router.js';
 import { adminDeletePage, adminExtendSubscription, adminBanUser, adminUnbanUser, adminUpdatePage, publicPageUrl } from '../lib/pages-api.js';
+import { isValidConversionLabel } from '../lib/page-validation.js';
 
 export async function renderAdmin(container) {
   container.innerHTML = `
@@ -264,7 +265,7 @@ export async function renderAdmin(container) {
               <input
                 type="text"
                 id="editGtag"
-                placeholder="AW-XXXXX/YYYYY"
+                placeholder="AW-123456789/AbC_DeF"
                 class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 text-sm focus:border-emerald-500 outline-none font-mono"
               />
             </div>
@@ -597,6 +598,11 @@ export async function renderAdmin(container) {
 
     if (!title || !phone || !expiresInput) {
       showToast('أكمل الحقول المطلوبة', 'error');
+      return;
+    }
+
+    if (gtag_label && !isValidConversionLabel(gtag_label)) {
+      showToast('كود جوجل ناقص أو غير صحيح، الشكل الصحيح: AW-123456789/AbC_DeF', 'error');
       return;
     }
 

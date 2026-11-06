@@ -15,6 +15,7 @@ import {
   showFieldErrors,
   syncHoursBox,
 } from './dashboard-form.js';
+import { renderTrafficReport } from './dashboard-traffic.js';
 
 function statRow(label, value) {
   const row = el(
@@ -29,7 +30,7 @@ function statRow(label, value) {
 }
 
 function renderStats(statsEl, page) {
-  const title = el('h2', 'font-black text-sm text-white', 'إحصائيات الصفحة');
+  const title = el('h2', 'font-black text-sm text-white', 'إجمالي الإحصائيات');
 
   if (!page) {
     statsEl.replaceChildren(
@@ -43,6 +44,7 @@ function renderStats(statsEl, page) {
     title,
     statRow('زيارات الصفحة', page.views_count ?? 0),
     statRow('ضغطات زر الاتصال', page.calls_count ?? 0),
+    statRow('ضغطات الواتساب', page.whatsapp_clicks ?? 0),
   );
 }
 
@@ -176,6 +178,8 @@ export async function renderDashboard(container) {
         </div>
 
         <div id="stats" class="glass-card rounded-3xl p-6 space-y-4"></div>
+
+        <div id="traffic" class="glass-card rounded-3xl p-6 space-y-4"></div>
       </aside>
     </div>
   `;
@@ -249,6 +253,7 @@ export async function renderDashboard(container) {
   setStatus(statusEl, currentPage);
   renderLinkBox(linkEl, currentPage);
   renderStats(statsEl, currentPage);
+  renderTrafficReport(container.querySelector('#traffic'), currentPage);
   syncHoursBox(form);
   updatePreview();
 

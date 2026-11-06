@@ -74,7 +74,28 @@ export function createPageCard(page, { interactive = false, onCall } = {}) {
   if (page.description) {
     header.append(el('p', 'text-xs text-slate-300 bg-slate-950 p-3 rounded-2xl border border-slate-800 leading-relaxed', page.description));
   }
+  const area = String(page.service_area || '').trim();
+  if (area) {
+    const areaTag = el('div', 'inline-flex items-center gap-1.5 text-[11px] text-slate-300 font-bold');
+    areaTag.append(el('i', 'fa-solid fa-location-dot text-emerald-400'), el('span', '', `نخدم منطقة: ${area}`));
+    header.append(areaTag);
+  }
   card.append(header);
+
+  const services = String(page.services || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, 10);
+  if (services.length) {
+    const list = el('ul', 'space-y-1.5');
+    services.forEach((service) => {
+      const item = el('li', 'flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200');
+      item.append(el('i', 'fa-solid fa-circle-check text-emerald-400'), el('span', '', service));
+      list.append(item);
+    });
+    card.append(list);
+  }
 
   const actions = el('div', 'space-y-2.5');
   const callClass = 'w-full bg-emerald-500 text-slate-950 font-black py-3.5 rounded-2xl flex items-center justify-center gap-2 text-base shadow-lg transition';

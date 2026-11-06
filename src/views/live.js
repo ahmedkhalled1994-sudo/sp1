@@ -1,4 +1,5 @@
-import { fetchPublicPage, recordPageView, recordCallClick } from '../lib/pages-api.js';
+import { fetchPublicPage } from '../lib/pages-api.js';
+import { createContactTracker, setupGoogleAdsTracking } from '../lib/conversion-tracking.js';
 import { escapeHtml } from '../lib/dom.js';
 import { copyText, showToast } from '../lib/feedback.js';
 import { DEFAULT_AD_CURRENCY } from '../lib/constants.js';
@@ -79,76 +80,6 @@ function resolveWorkingHours(page) {
 
   return '';
 }
-
-function setupGoogleAdsTracking(gtagLabel) {
-  if (!gtagLabel) return;
-
-  const accountId = gtagLabel.includes('/') ? gtagLabel.split('/')[0] : gtagLabel;
-  if (!accountId) return;
-
-  if (!document.getElementById('google-ads-tag')) {
-    const script = document.createElement('script');
-    script.id = 'google-ads-tag';
-    script.async = true;
-    script.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(accountId)}`;
-    document.head.appendChild(script);
-
-    window.dataLayer = window.dataLayer || [];
-
-    function gtag() {
-      window.dataLayer.push(arguments);
-    }
-
-    window.gtag = gtag;
-    gtag('js', new Date());
-    gtag('config', accountId);
-  }
-}
-
-const AntiBotSystem = {
-  clickCooldown: false,
-
-  isAutomatedBot() {
-    if (navigator.webdriver) return true;
-    const botPattern = /bot|spider|crawl|scraper|headless|selenium/i;
-    return botPattern.test(navigator.userAgent);
-  },
-
-  async handleCallClick(slug, phone, gtagLabel, event, currency = DEFAULT_AD_CURRENCY) {
-    if (event) event.preventDefault();
-
-    const telHref = safeTel(phone);
-    if (!telHref) return;
-
-    if (this.isAutomatedBot() || this.clickCooldown) return;
-
-    this.clickCooldown = true;
-    setTimeout(() => {
-      this.clickCooldown = false;
-    }, 2500);
-
-    if (typeof window.gtag === 'function' && gtagLabel) {
-      try {
-        window.gtag('event', 'conversion', {
-          send_to: gtagLabel,
-          value: 1.0,
-          currency,
-          event_callback: () => {
-            console.log('[PAG ADS] تم تسجيل إحالة ناجحة');
-          },
-        });
-      } catch (err) {
-        console.warn('[PAG ADS] خطأ في تتبع الإحالة:', err);
-      }
-    }
-
-    try {
-      await recordCallClick(slug);
-    } catch (_) {}
-
-    window.location.href = telHref;
-  },
-};
 
 function renderHeroIcon(icon) {
   const raw = String(icon || '').trim();
@@ -248,14 +179,35 @@ function formatSocialUrl(type, value) {
   }
 }
 
-function updateSEO(page) {
-  const pageTitle = page.title || page.company_name || 'خدمة سريعة';
-  document.title = `${pageTitle} | إحالة ناجحة واتصال مباشر`;
+function parseServices(value) {
+  return String(value || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, 10);
+}
 
-  const metaDesc = document.querySelector('meta[name="description"]');
-  if (metaDesc) {
-    metaDesc.content = page.description || pageTitle;
+function setMeta(attr, key, content) {
+  let tag = document.querySelector(`meta[${attr}="${key}"]`);
+  if (!tag) {
+    tag = document.createElement('meta');
+    tag.setAttribute(attr, key);
+    document.head.appendChild(tag);
   }
+  tag.content = content;
+}
+
+function updateSEO(page, services) {
+  const pageTitle = page.title || page.company_name || 'خدمة سريعة';
+  const area = String(page.service_area || '').trim();
+  document.title = area ? `${pageTitle} | ${area}` : pageTitle;
+
+  const description =
+    page.description || [pageTitle, services.join('، '), area].filter(Boolean).join(' - ');
+
+  setMeta('name', 'description', description.slice(0, 160));
+  setMeta('property', 'og:title', document.title);
+  setMeta('property', 'og:description', description.slice(0, 160));
 }
 
 export async function renderLive(container, slug, { returnTo = null } = {}) {
@@ -322,14 +274,14 @@ export async function renderLive(container, slug, { returnTo = null } = {}) {
   const gtagLabel = page.gtag_label || page.conversion_label || '';
   const currency = page.currency || DEFAULT_AD_CURRENCY;
 
-  updateSEO(page);
+  const services = parseServices(page.services);
+  const serviceArea = String(page.service_area || '').trim();
+
+  updateSEO(page, services);
   setupGoogleAdsTracking(gtagLabel);
 
-  if (!returnTo && !AntiBotSystem.isAutomatedBot()) {
-    try {
-      await recordPageView(cleanSlug);
-    } catch (_) {}
-  }
+  const tracker = createContactTracker({ slug: cleanSlug, gtagLabel, currency, isPreview: Boolean(returnTo) });
+  tracker.trackView();
 
   const title = page.title || page.company_name || 'خدمة سريعة';
   const workingHours = resolveWorkingHours(page);
@@ -352,6 +304,8 @@ export async function renderLive(container, slug, { returnTo = null } = {}) {
       url: whatsappUrl,
       icon: 'fa-brands fa-whatsapp',
       color: 'text-teal-400',
+      label: 'واتساب',
+      isWhatsapp: true,
     });
   }
 
@@ -397,6 +351,7 @@ export async function renderLive(container, slug, { returnTo = null } = {}) {
                 href="${escapeHtml(item.url)}"
                 target="_blank"
                 rel="noopener noreferrer"
+                ${item.isWhatsapp ? 'data-contact="whatsapp" aria-label="واتساب"' : ''}
                 class="w-11 h-11 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center ${item.color} text-lg hover:bg-slate-800 transition"
               >
                 <i class="${item.icon}"></i>
@@ -408,11 +363,11 @@ export async function renderLive(container, slug, { returnTo = null } = {}) {
     `
     : '';
 
-  const trialBanner = isTrial
+  const trialBanner = isTrial && returnTo
     ? `
       <div class="w-full mb-4 px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-bold text-center">
         <i class="fa-solid fa-flask ml-1"></i>
-        صفحة تجريبية مجانية
+        صفحة تجريبية مجانية (يظهر هذا التنبيه لك فقط ولا يراه الزوار)
       </div>
     `
     : '';
@@ -437,13 +392,6 @@ export async function renderLive(container, slug, { returnTo = null } = {}) {
         </button>
 
         <div class="flex items-center justify-center gap-3 text-xs mt-3 text-slate-400">
-          <span class="inline-flex items-center gap-1 font-bold ${currentTheme.tagColor}">
-            <i class="fa-solid fa-circle-check text-xs"></i>
-            إحالة ناجحة معتمدة
-          </span>
-
-          <span>•</span>
-
           <span class="inline-flex items-center gap-1">
             <i class="fa-solid fa-bolt text-amber-400 text-xs"></i>
             اتصال فوري ومباشر
@@ -478,12 +426,18 @@ export async function renderLive(container, slug, { returnTo = null } = {}) {
     <div class="min-h-screen ${currentTheme.bg} ${currentTheme.text} flex flex-col justify-between items-center px-4 py-8 max-w-md mx-auto transition-colors duration-300">
       ${trialBanner}
 
-      <div class="w-full flex justify-center mb-6 animate-fade-in">
-        <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border text-xs font-semibold backdrop-blur-md ${currentTheme.badge}">
-          <i class="fa-solid fa-shield-halved ${currentTheme.badgeIcon}"></i>
-          <span>محمية ضد النقرات الوهمية | SpeedShield™</span>
-        </div>
-      </div>
+      ${
+        serviceArea
+          ? `
+            <div class="w-full flex justify-center mb-6 animate-fade-in">
+              <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border text-xs font-semibold backdrop-blur-md ${currentTheme.badge}">
+                <i class="fa-solid fa-location-dot ${currentTheme.badgeIcon}"></i>
+                <span>نخدم منطقة: ${escapeHtml(serviceArea)}</span>
+              </div>
+            </div>
+          `
+          : ''
+      }
 
       <div class="w-full text-center flex-1 flex flex-col justify-center items-center animate-fade-in">
         <div class="w-24 h-24 mb-5 rounded-3xl flex items-center justify-center shadow-xl text-4xl ${currentTheme.iconBg}">
@@ -517,6 +471,28 @@ export async function renderLive(container, slug, { returnTo = null } = {}) {
 
         ${callBlockHtml}
 
+        ${
+          services.length
+            ? `
+              <section class="w-full mt-6 text-right" aria-label="خدماتنا">
+                <h2 class="text-sm font-black mb-3 text-center">خدماتنا</h2>
+                <ul class="grid gap-2">
+                  ${services
+                    .map(
+                      (service) => `
+                        <li class="flex items-center gap-2 bg-slate-900/80 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200">
+                          <i class="fa-solid fa-circle-check ${currentTheme.tagColor}"></i>
+                          <span>${escapeHtml(service)}</span>
+                        </li>
+                      `,
+                    )
+                    .join('')}
+                </ul>
+              </section>
+            `
+            : ''
+        }
+
         ${socialLinksHtml}
       </div>
 
@@ -531,10 +507,17 @@ export async function renderLive(container, slug, { returnTo = null } = {}) {
 
   const singleCallBtn = container.querySelector('#singleCallBtn');
   if (singleCallBtn && page.phone) {
-    singleCallBtn.addEventListener('click', (e) => {
-      AntiBotSystem.handleCallClick(cleanSlug, page.phone, gtagLabel, e, currency);
+    singleCallBtn.addEventListener('click', async () => {
+      if (singleCallBtn.disabled) return;
+      singleCallBtn.disabled = true;
+      await tracker.trackCall(telHref);
+      singleCallBtn.disabled = false;
     });
   }
+
+  container.querySelector('[data-contact="whatsapp"]')?.addEventListener('click', () => {
+    tracker.trackWhatsapp();
+  });
 
   const copyPhoneBtn = container.querySelector('#copyPhoneBtn');
   if (copyPhoneBtn && page.phone) {
