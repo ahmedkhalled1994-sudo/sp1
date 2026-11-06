@@ -116,7 +116,7 @@ function renderLinkBox(linkEl, page) {
     'flex-1 text-center bg-linear-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black py-2.5 rounded-xl text-xs transition shadow-lg',
     'معاينة الصفحة الحية',
   );
-  openLink.href = publicPageUrl(page.slug, { preview: true });
+  openLink.href = publicPageUrl(page.slug, { returnTo: 'dashboard' });
 
   const actions = el('div', 'flex gap-2');
   actions.append(copyBtn, openLink);

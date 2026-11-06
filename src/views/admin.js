@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase.js';
 import { showToast } from '../lib/feedback.js';
 import { escapeHtml } from '../lib/dom.js';
 import { navigate } from '../lib/router.js';
-import { adminDeletePage, adminExtendSubscription, adminBanUser, adminUnbanUser, adminUpdatePage } from '../lib/pages-api.js';
+import { adminDeletePage, adminExtendSubscription, adminBanUser, adminUnbanUser, adminUpdatePage, publicPageUrl } from '../lib/pages-api.js';
 
 export async function renderAdmin(container) {
   container.innerHTML = `
@@ -391,8 +391,7 @@ export async function renderAdmin(container) {
                 <div>
                   <h3 class="font-bold text-lg text-slate-100">${safeTitle}</h3>
                   <a
-                    href="/?p=${encodeURIComponent(page.slug || '')}"
-                    target="_blank"
+                    href="${escapeHtml(publicPageUrl(page.slug || '', { returnTo: 'admin' }))}"
                     class="text-xs text-emerald-400 hover:underline flex items-center gap-1 mt-0.5"
                   >
                     <i class="fa-solid fa-arrow-up-right-from-square"></i> /?p=${safeSlug}

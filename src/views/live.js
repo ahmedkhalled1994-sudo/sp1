@@ -258,7 +258,7 @@ function updateSEO(page) {
   }
 }
 
-export async function renderLive(container, slug, { isOwnerPreview = false } = {}) {
+export async function renderLive(container, slug, { returnTo = null } = {}) {
   const cleanSlug = String(slug).trim();
 
   container.innerHTML = `
@@ -306,10 +306,10 @@ export async function renderLive(container, slug, { isOwnerPreview = false } = {
         </p>
 
         <a
-          href="/"
+          href="${escapeHtml(returnTo ? `${window.location.pathname}#${returnTo}` : '/')}"
           class="px-6 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-bold transition"
         >
-          العودة للرئيسية
+          ${returnTo ? 'رجوع' : 'العودة للرئيسية'}
         </a>
       </div>
     `;
@@ -325,7 +325,7 @@ export async function renderLive(container, slug, { isOwnerPreview = false } = {
   updateSEO(page);
   setupGoogleAdsTracking(gtagLabel);
 
-  if (!isOwnerPreview && !AntiBotSystem.isAutomatedBot()) {
+  if (!returnTo && !AntiBotSystem.isAutomatedBot()) {
     try {
       await recordPageView(cleanSlug);
     } catch (_) {}
@@ -453,19 +453,20 @@ export async function renderLive(container, slug, { isOwnerPreview = false } = {
     `
     : '';
 
-  const dashboardHref = `${window.location.pathname}#dashboard`;
+  const backHref = `${window.location.pathname}#${returnTo}`;
+  const isAdminPreview = returnTo === 'admin';
 
-  const previewBar = isOwnerPreview
+  const previewBar = returnTo
     ? `
       <div class="sticky top-0 z-50 w-full bg-slate-900/95 backdrop-blur border-b border-slate-800">
         <div class="max-w-md mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
           <span class="text-[11px] text-slate-300 font-bold">
             <i class="fa-regular fa-eye ml-1 text-emerald-400"></i>
-            معاينة صفحتك كما يراها الزوار
+            ${isAdminPreview ? 'معاينة صفحة العميل كما يراها الزوار' : 'معاينة صفحتك كما يراها الزوار'}
           </span>
-          <a href="${escapeHtml(dashboardHref)}" class="text-[11px] font-black px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition">
+          <a href="${escapeHtml(backHref)}" class="text-[11px] font-black px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition whitespace-nowrap">
             <i class="fa-solid fa-arrow-right ml-1"></i>
-            رجوع للوحة التحكم
+            ${isAdminPreview ? 'رجوع للوحة المدير' : 'رجوع للوحة التحكم'}
           </a>
         </div>
       </div>

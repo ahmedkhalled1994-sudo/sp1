@@ -36,7 +36,9 @@ async function boot() {
 
   if (liveSlug) {
     nav.hidden = true;
-    await renderLive(app, liveSlug, { isOwnerPreview: params.get('preview') === '1' });
+    const back = params.get('back');
+    const returnTo = back === 'dashboard' || back === 'admin' ? back : null;
+    await renderLive(app, liveSlug, { returnTo });
     return;
   }
 
