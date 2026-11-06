@@ -123,6 +123,9 @@ function validateValues(values) {
     if (values[`plan${number}_variant_id`] && !/^\d{1,12}$/.test(values[`plan${number}_variant_id`])) {
       return `رقم الباقة في Lemon Squeezy لـ ${PLAN_TITLES[number]} يجب أن يكون أرقاماً فقط`;
     }
+    if (values[`plan${number}_variant_id`] && !/[0-9٠-٩]/.test(values[`plan${number}_new_price`])) {
+      return `سعر العرض لـ ${PLAN_TITLES[number]} يجب أن يحتوي على رقم، لأنه المبلغ الذي سيُدفع أونلاين`;
+    }
   }
   return null;
 }

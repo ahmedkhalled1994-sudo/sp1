@@ -22,6 +22,18 @@ function safeReturnUrl(value: unknown): string | null {
   }
 }
 
+const ARABIC_DIGITS = "٠١٢٣٤٥٦٧٨٩";
+
+function priceToCents(text: unknown): number | null {
+  const normalized = String(text ?? "")
+    .replace(/[٠-٩]/g, (d) => String(ARABIC_DIGITS.indexOf(d)))
+    .replace(/٫/g, ".");
+  const match = normalized.match(/\d+(?:[.,]\d+)?/);
+  if (!match) return null;
+  const cents = Math.round(Number(match[0].replace(",", ".")) * 100);
+  return cents > 0 ? cents : null;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 200, headers: corsHeaders });
 
@@ -45,11 +57,13 @@ Deno.serve(async (req: Request) => {
     if (![1, 2, 3].includes(plan)) return json({ error: "invalid_plan" }, 400);
 
     const [{ data: settings }, { data: page }] = await Promise.all([
-      admin.from("pricing_settings").select(`plan${plan}_variant_id`).eq("id", "global").maybeSingle(),
+      admin.from("pricing_settings").select(`plan${plan}_variant_id, plan${plan}_new_price`).eq("id", "global").maybeSingle(),
       admin.from("pages").select("id").eq("user_id", user.id).maybeSingle(),
     ]);
 
-    const variantId = String((settings as Record<string, unknown> | null)?.[`plan${plan}_variant_id`] ?? "").trim();
+    const row = settings as Record<string, unknown> | null;
+    const variantId = String(row?.[`plan${plan}_variant_id`] ?? "").trim();
+    const customPrice = priceToCents(row?.[`plan${plan}_new_price`]);
     if (!variantId) return json({ error: "payments_not_configured" }, 503);
     if (!page) return json({ error: "no_page" }, 400);
 
@@ -66,6 +80,7 @@ Deno.serve(async (req: Request) => {
         data: {
           type: "checkouts",
           attributes: {
+            ...(customPrice ? { custom_price: customPrice } : {}),
             checkout_data: {
               email: user.email ?? undefined,
               custom: { user_id: user.id },
